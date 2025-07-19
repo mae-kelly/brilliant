@@ -1,0 +1,59 @@
+system:
+  name: "Renaissance DeFi Trading System"
+  version: "1.0.0"
+  mode: "production"
+  dry_run: true
+
+trading:
+  starting_capital: 10.0
+  max_position_size: 10.0
+  max_daily_loss: 50.0
+  target_tokens_per_day: 10000
+  
+parameters:
+  confidence_threshold: 0.75
+  momentum_threshold: 0.65
+  volatility_threshold: 0.10
+  liquidity_threshold: 50000
+  stop_loss: 0.05
+  take_profit: 0.12
+  max_hold_time: 300
+
+chains:
+  - name: "arbitrum"
+    rpc: "https://arb1.arbitrum.io/rpc"
+    chain_id: 42161
+  - name: "polygon" 
+    rpc: "https://polygon-rpc.com"
+    chain_id: 137
+  - name: "optimism"
+    rpc: "https://mainnet.optimism.io"
+    chain_id: 10
+
+scanning:
+  parallel_workers: 500
+  websocket_workers: 100
+  refresh_interval: 0.5
+  batch_size: 1000
+
+model:
+  type: "tensorflow_lite"
+  path: "models/model_weights.tflite"
+  scaler_path: "models/scaler.pkl"
+  features_path: "models/feature_names.json"
+  retrain_threshold: 100
+  confidence_decay: 0.95
+
+safety:
+  honeypot_detection: true
+  rug_analysis: true
+  circuit_breakers: true
+  max_slippage: 0.03
+  emergency_stop_losses: 5
+
+monitoring:
+  performance_logging: true
+  trade_logging: true
+  system_metrics: true
+  dashboard_port: 8080
+  inference_port: 8000

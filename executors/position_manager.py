@@ -1,3 +1,4 @@
+from config.dynamic_settings import dynamic_settings
 import sys
 sys.path.append('config')
 from dynamic_parameters import get_dynamic_config, update_performance
@@ -64,7 +65,7 @@ class PositionManager:
         self.pending_orders = {}
         self.position_limits = {
             'max_positions': 10,
-            'max_position_size_usd': 10.0,
+            'max_position_size_usd = dynamic_settings.get_position_size(portfolio_value, confidence),
             'max_total_exposure_usd': 50.0,
             'max_concentration_ratio': 0.3
         }

@@ -1,3 +1,4 @@
+from config.dynamic_settings import dynamic_settings
 
 # Dynamic configuration import
 import sys

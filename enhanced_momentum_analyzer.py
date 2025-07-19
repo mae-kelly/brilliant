@@ -1,3 +1,4 @@
+from config.dynamic_settings import dynamic_settings
 
 # Dynamic configuration import
 import sys
@@ -59,7 +60,7 @@ class EnhancedMomentumAnalyzer:
         # Advanced parameters
         self.momentum_windows = [5, 10, 20, 50]  # Multiple timeframes
         self.volatility_threshold = get_dynamic_config()["volatility_threshold"]
-        self.min_liquidity = 50000
+        self.min_liquidity = dynamic_settings.get_trading_params()["liquidity_threshold"]
         
         self.logger = logging.getLogger(__name__)
         

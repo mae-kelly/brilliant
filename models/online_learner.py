@@ -1,3 +1,4 @@
+from config.dynamic_settings import dynamic_settings
 import sys
 sys.path.append('config')
 from dynamic_parameters import get_dynamic_config, update_performance
