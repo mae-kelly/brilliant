@@ -1,3 +1,9 @@
+
+# Dynamic configuration import
+import sys
+sys.path.append('config')
+from dynamic_parameters import get_dynamic_config, update_performance
+
 from safety_manager import safety_manager
 from enhanced_honeypot_detector import enhanced_detector
 import time

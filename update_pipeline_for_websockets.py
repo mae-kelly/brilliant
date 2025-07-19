@@ -1,3 +1,9 @@
+
+# Dynamic configuration import
+import sys
+sys.path.append('config')
+from dynamic_parameters import get_dynamic_config, update_performance
+
 #!/usr/bin/env python3
 """
 Update existing pipeline to use WebSocket scanner

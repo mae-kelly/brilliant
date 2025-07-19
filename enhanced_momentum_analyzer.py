@@ -1,3 +1,9 @@
+
+# Dynamic configuration import
+import sys
+sys.path.append('config')
+from dynamic_parameters import get_dynamic_config, update_performance
+
 #!/usr/bin/env python3
 """
 ENHANCED MOMENTUM ANALYZER
@@ -52,7 +58,7 @@ class EnhancedMomentumAnalyzer:
         
         # Advanced parameters
         self.momentum_windows = [5, 10, 20, 50]  # Multiple timeframes
-        self.volatility_threshold = 0.15
+        self.volatility_threshold = get_dynamic_config()["volatility_threshold"]
         self.min_liquidity = 50000
         
         self.logger = logging.getLogger(__name__)

@@ -1,0 +1,32 @@
+# Ultra-Scale Scanner Dependencies
+aiohttp==3.8.6
+asyncio-pool==0.6.0
+aiodns==3.0.0
+uvloop==0.17.0
+aiofiles==23.2.1
+
+# WebSocket & Real-time Data
+websockets==11.0.0
+aioredis==2.0.1
+aiokafka==0.8.10
+
+# High-Performance JSON
+ujson==5.8.0
+orjson==3.9.0
+
+# GraphQL for Subgraphs
+gql==3.4.1
+aiohttp-graphql==1.2.0
+
+# Parallel Processing
+multiprocessing-logging==0.3.4
+concurrent-futures==3.1.1
+
+# Data Processing
+numpy==1.24.0
+pandas==2.0.0
+polars==0.19.0
+
+# Caching & Storage
+redis==4.5.0
+lmdb==1.4.1

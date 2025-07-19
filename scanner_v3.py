@@ -1,3 +1,9 @@
+
+# Dynamic configuration import
+import sys
+sys.path.append('config')
+from dynamic_parameters import get_dynamic_config, update_performance
+
 from safe_operations import logger, retry_on_failure, safe_execute, file_ops, net_ops
 # scanner_v3.py
 
