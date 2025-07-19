@@ -32,3 +32,27 @@ cache/
 # Any config with real values
 config_real.*
 prod_config.*
+
+# Security - NEVER commit these files
+.env
+.env.local
+.env.production
+.env.secure
+*.key
+*private*
+*secret*
+*credential*
+wallet_*
+private_key_*
+*backup*
+
+# Files with potential hardcoded addresses
+*_with_addresses.py
+*_hardcoded.py
+*_insecure.py
+
+# Backup files that might contain sensitive data
+*.backup
+*.bak
+*.old
+*_backup.py

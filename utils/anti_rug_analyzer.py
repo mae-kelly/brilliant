@@ -70,7 +70,7 @@ class AntiRugAnalyzer:
             events = pair_contract.events.Transfer.create_filter(fromBlock='latest').get_all_entries()
             liquidity_removed = 0
             for e in events:
-                if e["args"]["to"] in [os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")")]:
+                if e["args"]["to"] in [os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")")]:
                     liquidity_removed += e["args"]["value"]
             return liquidity_removed > 0
         except:

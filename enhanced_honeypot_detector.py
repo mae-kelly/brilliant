@@ -37,13 +37,13 @@ class EnhancedHoneypotDetector:
     
     def simulate_full_trade_cycle(self, token_address: str, test_amount: int = 10**15) -> bool:
         try:
-            router_address = os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")")
-            weth_address = os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")")
+            router_address = os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")")
+            weth_address = os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")")
             
             router_abi = [{"inputs": [{"internalType": "uint256", "name": "amountOutMin", "type": "uint256"}, {"internalType": "address[]", "name": "path", "type": "address[]"}, {"internalType": "address", "name": "to", "type": "address"}, {"internalType": "uint256", "name": "deadline", "type": "uint256"}], "name": "swapExactETHForTokens", "outputs": [{"internalType": "uint256[]", "name": "amounts", "type": "uint256[]"}], "stateMutability": "payable", "type": "function"}, {"inputs": [{"internalType": "uint256", "name": "amountIn", "type": "uint256"}, {"internalType": "uint256", "name": "amountOutMin", "type": "uint256"}, {"internalType": "address[]", "name": "path", "type": "address[]"}, {"internalType": "address", "name": "to", "type": "address"}, {"internalType": "uint256", "name": "deadline", "type": "uint256"}], "name": "swapExactTokensForETH", "outputs": [{"internalType": "uint256[]", "name": "amounts", "type": "uint256[]"}], "stateMutability": "nonpayable", "type": "function"}]
             
             router = self.web3.eth.contract(address=router_address, abi=router_abi)
-            test_wallet = os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")")
+            test_wallet = os.getenv("WALLET_ADDRESS", "os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")")
             deadline = int(time.time()) + 120
             
             buy_path = [weth_address, token_address]

@@ -33,23 +33,23 @@ class OptimizedMEVEngine:
         self.poly_w3 = Web3(Web3.HTTPProvider(self.poly_rpc))
         
         self.dex_routers = {
-            'uniswap_v3_arb': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'sushiswap_arb': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'camelot_arb': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'uniswap_v3_poly': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'quickswap_poly': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'sushiswap_poly': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")'
+            'uniswap_v3_arb': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'sushiswap_arb': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'camelot_arb': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'uniswap_v3_poly': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'quickswap_poly': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'sushiswap_poly': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")'
         }
         
         self.tokens = {
-            'WETH_ARB': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'USDC_ARB': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'USDT_ARB': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'WBTC_ARB': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'WETH_POLY': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'USDC_POLY': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'USDT_POLY': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")',
-            'WBTC_POLY': 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")'
+            'WETH_ARB': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'USDC_ARB': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'USDT_ARB': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'WBTC_ARB': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'WETH_POLY': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'USDC_POLY': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'USDT_POLY': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")',
+            'WBTC_POLY': 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")'
         }
         
         self.opportunities = asyncio.Queue()

@@ -92,7 +92,7 @@ except Exception as e:
         try:
             factory = self._get_factory()
             pair_addr = factory.functions.getPair(token_address, self.weth_address).call()
-            if pair_addr == 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")':
+            if pair_addr == 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")':
                 return False
 
             creation_code = self.web3.eth.get_code(pair_addr)
@@ -108,7 +108,7 @@ except Exception as e:
 
         factory = self._get_factory()
         pair_addr = factory.functions.getPair(token_address, self.weth_address).call()
-        if pair_addr == 'os.getenv("WALLET_ADDRESS", "0x0000000000000000000000000000000000000000")':
+        if pair_addr == 'os.getenv("WALLET_ADDRESS", "os.getenv("CONTRACT_ADDRESS", "")")':
             return None
 
         pair = self.web3.eth.contract(address=pair_addr, abi=self.pair_abi)
