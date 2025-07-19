@@ -1,0 +1,34 @@
+
+.env
+.env.local
+.env.production
+*.key
+*private*
+*secret*
+*credential*
+.secrets/
+logs/
+cache/
+
+# Security - never commit these
+.env
+.env.production
+.env.local
+*.key
+*private*
+*secret*
+*credential*
+wallet_*
+private_key_*
+
+# Logs that might contain sensitive data
+logs/
+*.log
+
+# Cache that might contain addresses
+cache/
+.cache/
+
+# Any config with real values
+config_real.*
+prod_config.*

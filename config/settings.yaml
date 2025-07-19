@@ -1,0 +1,161 @@
+# =========================
+# 🧠 GLOBAL CONFIGURATION
+# =========================
+
+environment:
+  name: defi_sniper_ai
+  mode: production
+  dry_run: true
+  timezone: UTC
+  logging_level: INFO
+  max_concurrent_trades: 30
+  colab_mode: true
+  gpu_required: true
+  use_flashbots: true
+  target_gpus: ["A100", "T4"]
+
+# =========================
+# 🔗 BLOCKCHAIN SETTINGS
+# =========================
+
+blockchain:
+  chains:
+    - name: Arbitrum
+      rpc: "https://arb-mainnet.g.alchemy.com/v2/${API_KEY}"
+      chain_id: 42161
+      gas_token: ETH
+    - name: Polygon
+      rpc: "https://polygon-rpc.com"
+      chain_id: 137
+      gas_token: MATIC
+    - name: Optimism
+      rpc: "https://opt-mainnet.g.alchemy.com/v2/${API_KEY}"
+      chain_id: 10
+      gas_token: ETH
+
+gas:
+  base_limit: 900000
+  slippage_tolerance: 0.025
+  max_priority_fee_gwei: 3
+  dynamic_adjustment: true
+
+wallet:
+  private_key_path: "./.secrets/private_key.txt"
+  default_account_index: 0
+  funding_threshold_usd: 5.00
+  tx_retry_limit: 3
+
+# =========================
+# 📊 SCANNER SETTINGS
+# =========================
+
+scanner:
+  refresh_interval_ms: 500
+  dex_sources:
+    - Uniswap
+    - PancakeSwap
+    - Camelot
+    - SushiSwap
+  volatility_threshold: 0.07
+  target_spike_range:
+    min: 0.09
+    max: 0.13
+  detect_window_seconds: 30
+  scan_parallelism: 25
+  whitelist_tokens_path: "./config/whitelist.csv"
+  blacklist_tokens_path: "./config/blacklist.csv"
+
+# =========================
+# 🤖 MODEL CONFIGURATION
+# =========================
+
+model:
+  type: tensorflow-lite
+  default_path: "./models/latest_model.tflite"
+  confidence_threshold: 0.94
+  entropy_threshold: 0.12
+  refresh_interval_minutes: 60
+  feature_order:
+    - price_delta
+    - vol_delta
+    - liq_delta
+    - velocity
+    - momentum
+    - volatility_burst
+  retrain_on_failure: true
+  live_inference_endpoint: "http://localhost:8000/predict"
+
+# =========================
+# 💰 EXECUTION SETTINGS
+# =========================
+
+execution:
+  auto_buy_enabled: true
+  auto_sell_enabled: true
+  breakout_hold_duration_sec: 120
+  max_trade_duration_sec: 300
+  sell_on_momentum_drop: true
+  momentum_drop_threshold: 0.01
+  max_position_size_usd: 10
+  rebuy_cooldown_sec: 60
+  dry_run_logging: true
+
+# =========================
+# 🛡️ RISK MANAGEMENT
+# =========================
+
+risk_controls:
+  honeypot_detection_enabled: true
+  honeypot_api: "https://api.honeypot.is"
+  lp_lock_verification: true
+  slippage_guard_active: true
+  trading_pause_detection: true
+  blacklist_if_unsafe: true
+  rugpull_contract_patterns:
+    - "function disableTrading"
+    - "function removeLiquidity"
+    - "function lockTokens(uint256 time)"
+
+# =========================
+# 📦 CACHE & STORAGE
+# =========================
+
+cache:
+  token_metadata_ttl_sec: 900
+  prediction_cache_ttl_sec: 60
+  persist_predictions: true
+  prediction_log_path: "./logs/predictions.jsonl"
+  volatility_log_path: "./logs/volatility_events.jsonl"
+
+# =========================
+# 🔍 MONITORING & DEBUG
+# =========================
+
+monitoring:
+  entropy_window_seconds: 120
+  high_entropy_trigger: 0.18
+  alert_on_uncertainty: true
+  log_live_predictions: true
+  post_to_dashboard: true
+
+dashboard:
+  enabled: true
+  endpoint: "http://localhost:5005"
+  refresh_rate_sec: 10
+
+# =========================
+# 📁 FILE PATHS
+# =========================
+
+paths:
+  logs: "./logs/"
+  cache: "./cache/"
+  temp: "./tmp/"
+  config: "./config/"
+  scripts: "./scripts/"
+  strategies: "./strategies/"
+  models: "./models/"
+  classifiers: "./models/classifiers/"
+  checkpoints: "./models/checkpoints/"
+  backups: "./models/backups/"
+
