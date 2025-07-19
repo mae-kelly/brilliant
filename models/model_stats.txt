@@ -1,0 +1,4 @@
+accuracy=1.0000
+precision=1.0000
+recall=1.0000
+features=velocity,volume_surge,momentum,volatility,breakout_strength,liquidity_delta,age,dex_concentration
