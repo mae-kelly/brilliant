@@ -1,0 +1,15 @@
+parameters:
+  confidence_threshold: 0.75
+  liquidity_threshold: 50000
+  momentum_threshold: 0.65
+  stop_loss: 0.05
+  take_profit: 0.12
+  volatility_threshold: 0.1
+system:
+  mode: production
+  name: Renaissance DeFi Trading System
+  version: 1.0.0
+trading:
+  max_daily_loss: 50.0
+  max_position_size: 10.0
+  starting_capital: 10.0
