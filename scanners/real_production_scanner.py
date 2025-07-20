@@ -1,6 +1,5 @@
 import asyncio
 import aiohttp
-import websockets
 import json
 import time
 import numpy as np
@@ -8,538 +7,313 @@ from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass
 from collections import deque, defaultdict
 import logging
-from web3 import Web3
-import sqlite3
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config"))
-
-try:
-    from config.optimizer import get_dynamic_config
-except ImportError:
-    def get_dynamic_config():
-        return {
-            "momentum_threshold": 0.65,
-            "confidence_threshold": 0.75,
-            "min_liquidity_threshold": 10000,
-            "min_price_change": 9,
-            "max_price_change": 15,
-            "volatility_threshold": 0.10
-        }
+import websockets
+from core.web3_manager import web3_manager
 
 @dataclass
-class ProductionTokenSignal:
+class RealTokenSignal:
     address: str
     chain: str
     symbol: str
     name: str
     price: float
     volume_24h: float
-    price_change_24h: float
+    price_change_1m: float
+    price_change_5m: float
     momentum_score: float
     liquidity_usd: float
     market_cap: float
-    holder_count: int
-    tx_count_24h: int
     detected_at: float
     confidence: float
     velocity: float
     volatility: float
-    order_flow_imbalance: float
-    dex_source: str
+    breakout_strength: float
     pair_address: str
+    reserve0: int
+    reserve1: int
 
-class ProductionRealTimeScanner:
+class RealProductionScanner:
     def __init__(self):
-        self.graph_endpoints = {
-            'uniswap_v3_mainnet': 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
-            'uniswap_v2_mainnet': 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2',
-            'sushiswap_mainnet': 'https://api.thegraph.com/subgraphs/name/sushi-v2/sushiswap-ethereum',
-            'uniswap_v3_arbitrum': 'https://api.thegraph.com/subgraphs/name/ianlapham/arbitrum-minimal',
-            'camelot_arbitrum': 'https://api.thegraph.com/subgraphs/name/camelot-labs/camelot-amm-arbitrum',
-            'quickswap_polygon': 'https://api.thegraph.com/subgraphs/name/sameepsi/quickswap06',
-            'uniswap_v3_polygon': 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon'
-        }
-        
-        self.chain_configs = {
-            'ethereum': {
-                'rpc': f"https://eth-mainnet.g.alchemy.com/v2/{os.getenv('ALCHEMY_API_KEY', 'demo')}",
-                'dexes': ['uniswap_v3_mainnet', 'uniswap_v2_mainnet', 'sushiswap_mainnet'],
-                'chain_id': 1
-            },
-            'arbitrum': {
-                'rpc': f"https://arb-mainnet.g.alchemy.com/v2/{os.getenv('ALCHEMY_API_KEY', 'demo')}",
-                'dexes': ['uniswap_v3_arbitrum', 'camelot_arbitrum'],
-                'chain_id': 42161
-            },
-            'polygon': {
-                'rpc': f"https://polygon-mainnet.g.alchemy.com/v2/{os.getenv('ALCHEMY_API_KEY', 'demo')}",
-                'dexes': ['quickswap_polygon', 'uniswap_v3_polygon'],
-                'chain_id': 137
-            }
-        }
-        
+        self.dexscreener_base = "https://api.dexscreener.com/latest"
+        self.moralis_base = "https://deep-index.moralis.io/api/v2"
         self.session = None
-        self.ws_connections = {}
+        
+        self.price_history = defaultdict(lambda: deque(maxlen=300))
+        self.volume_history = defaultdict(lambda: deque(maxlen=300))
         self.discovered_tokens = set()
-        self.signal_queue = asyncio.Queue(maxsize=50000)
-        self.price_history = defaultdict(lambda: deque(maxlen=200))
-        self.volume_history = defaultdict(lambda: deque(maxlen=200))
-        self.worker_count = 500
+        self.signal_queue = asyncio.Queue(maxsize=10000)
+        
+        self.chains = ['ethereum', 'arbitrum', 'polygon']
         self.running = False
         
         self.stats = {
             'tokens_scanned': 0,
             'signals_generated': 0,
             'api_calls': 0,
-            'start_time': time.time(),
-            'errors': 0,
-            'cache_hits': 0
+            'start_time': time.time()
         }
         
-        self.cache = {}
-        self.cache_ttl = 15
-        
-        logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
     async def initialize(self):
-        connector = aiohttp.TCPConnector(limit=200, limit_per_host=50)
-        timeout = aiohttp.ClientTimeout(total=8, connect=3)
-        self.session = aiohttp.ClientSession(connector=connector, timeout=timeout)
+        self.session = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=10),
+            connector=aiohttp.TCPConnector(limit=100)
+        )
         
+        await web3_manager.initialize()
         self.running = True
         
         tasks = []
-        
-        for i in range(self.worker_count):
-            chain = list(self.chain_configs.keys())[i % len(self.chain_configs)]
-            tasks.append(asyncio.create_task(self.worker_loop(i, chain)))
-        
-        for chain in self.chain_configs.keys():
+        for chain in self.chains:
+            tasks.append(asyncio.create_task(self.scan_new_pairs(chain)))
+            tasks.append(asyncio.create_task(self.monitor_price_movements(chain)))
             tasks.append(asyncio.create_task(self.websocket_monitor(chain)))
         
-        tasks.append(asyncio.create_task(self.price_tracker()))
         tasks.append(asyncio.create_task(self.momentum_detector()))
-        tasks.append(asyncio.create_task(self.performance_monitor()))
-        
-        self.logger.info(f"Initialized {self.worker_count} production workers")
+        tasks.append(asyncio.create_task(self.performance_tracker()))
         
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def worker_loop(self, worker_id: int, chain: str):
+    async def scan_new_pairs(self, chain: str):
         while self.running:
             try:
-                await self.scan_chain_dexes(worker_id, chain)
-                await asyncio.sleep(0.02)
-            except Exception as e:
-                self.stats['errors'] += 1
-                await asyncio.sleep(1)
-
-    async def scan_chain_dexes(self, worker_id: int, chain: str):
-        dexes = self.chain_configs[chain]['dexes']
-        
-        for dex in dexes:
-            try:
-                tokens = await self.fetch_dex_tokens(dex, chain)
+                new_pairs = await self.fetch_recent_pairs(chain)
                 
-                for token in tokens:
-                    token_key = f"{chain}_{token['id']}"
-                    if token_key not in self.discovered_tokens:
-                        self.discovered_tokens.add(token_key)
-                        await self.analyze_token_signal(token, chain, dex)
+                for pair in new_pairs:
+                    if pair['baseToken']['address'] not in self.discovered_tokens:
+                        self.discovered_tokens.add(pair['baseToken']['address'])
+                        await self.analyze_new_token(pair, chain)
                         self.stats['tokens_scanned'] += 1
                         
+                await asyncio.sleep(5)
+                
             except Exception as e:
-                self.stats['errors'] += 1
+                self.logger.error(f"Error scanning {chain}: {e}")
+                await asyncio.sleep(30)
 
-    async def fetch_dex_tokens(self, dex: str, chain: str) -> List[Dict]:
-        endpoint = self.graph_endpoints.get(dex)
-        if not endpoint:
-            return []
-        
-        cache_key = f"{dex}_{int(time.time() // self.cache_ttl)}"
-        if cache_key in self.cache:
-            self.stats['cache_hits'] += 1
-            return self.cache[cache_key]
-        
-        query = self.build_dex_query(dex)
+    async def fetch_recent_pairs(self, chain: str) -> List[Dict]:
+        url = f"{self.dexscreener_base}/dex/tokens/{chain}"
         
         try:
-            async with self.session.post(
-                endpoint,
-                json={'query': query},
-                headers={'Content-Type': 'application/json'}
-            ) as response:
+            async with self.session.get(url) as response:
                 self.stats['api_calls'] += 1
                 
                 if response.status == 200:
                     data = await response.json()
-                    tokens = self.parse_tokens_response(data, dex)
-                    self.cache[cache_key] = tokens
-                    return tokens
-                elif response.status == 429:
-                    await asyncio.sleep(2)
+                    pairs = data.get('pairs', [])
                     
-        except asyncio.TimeoutError:
-            self.stats['errors'] += 1
+                    recent_pairs = []
+                    current_time = time.time()
+                    
+                    for pair in pairs:
+                        pair_created = pair.get('pairCreatedAt')
+                        if pair_created:
+                            created_timestamp = int(pair_created) / 1000
+                            if current_time - created_timestamp < 3600:
+                                volume = float(pair.get('volume', {}).get('h24', 0))
+                                if volume > 10000:
+                                    recent_pairs.append(pair)
+                    
+                    return recent_pairs[:50]
+                    
         except Exception as e:
-            self.stats['errors'] += 1
-        
+            self.logger.error(f"Error fetching pairs from {chain}: {e}")
+            
         return []
 
-    def build_dex_query(self, dex: str) -> str:
-        if 'uniswap_v3' in dex:
-            return '''
-            {
-              tokens(
-                first: 100
-                orderBy: totalValueLockedUSD
-                orderDirection: desc
-                where: {
-                  totalValueLockedUSD_gt: "5000"
-                  txCount_gt: "50"
-                }
-              ) {
-                id
-                symbol
-                name
-                decimals
-                totalSupply
-                volume
-                volumeUSD
-                txCount
-                totalValueLocked
-                totalValueLockedUSD
-                derivedETH
-                tokenDayData(first: 1, orderBy: date, orderDirection: desc) {
-                  priceUSD
-                  volume
-                  volumeUSD
-                  totalValueLockedUSD
-                  date
-                }
-              }
-            }
-            '''
-        elif 'uniswap_v2' in dex or 'sushiswap' in dex:
-            return '''
-            {
-              tokens(
-                first: 100
-                orderBy: totalLiquidity
-                orderDirection: desc
-                where: {
-                  totalLiquidity_gt: "1000"
-                }
-              ) {
-                id
-                symbol
-                name
-                decimals
-                totalSupply
-                tradeVolume
-                tradeVolumeUSD
-                txCount
-                totalLiquidity
-                derivedETH
-                tokenDayData(first: 1, orderBy: date, orderDirection: desc) {
-                  priceUSD
-                  dailyVolumeUSD
-                  totalLiquidityUSD
-                  date
-                }
-              }
-            }
-            '''
-        else:
-            return '''
-            {
-              tokens(
-                first: 100
-                orderBy: totalLiquidity
-                orderDirection: desc
-              ) {
-                id
-                symbol
-                name
-                decimals
-                totalSupply
-                tradeVolume
-                tradeVolumeUSD
-                txCount
-                totalLiquidity
-              }
-            }
-            '''
-
-    def parse_tokens_response(self, data: Dict, dex: str) -> List[Dict]:
+    async def analyze_new_token(self, pair: Dict, chain: str):
         try:
-            tokens = data.get('data', {}).get('tokens', [])
-            parsed = []
+            base_token = pair['baseToken']
+            token_address = base_token['address']
             
-            for token in tokens:
-                try:
-                    if 'uniswap_v3' in dex:
-                        day_data = token.get('tokenDayData', [])
-                        current_price = float(day_data[0]['priceUSD']) if day_data else 0
-                        
-                        parsed_token = {
-                            'id': token['id'],
-                            'symbol': token.get('symbol', 'UNKNOWN'),
-                            'name': token.get('name', 'Unknown'),
-                            'decimals': int(token.get('decimals', 18)),
-                            'total_supply': float(token.get('totalSupply', 0)),
-                            'volume_usd': float(token.get('volumeUSD', 0)),
-                            'liquidity_usd': float(token.get('totalValueLockedUSD', 0)),
-                            'tx_count': int(token.get('txCount', 0)),
-                            'current_price': current_price,
-                            'derived_eth': float(token.get('derivedETH', 0))
-                        }
-                    else:
-                        day_data = token.get('tokenDayData', [])
-                        current_price = float(day_data[0]['priceUSD']) if day_data else 0
-                        
-                        parsed_token = {
-                            'id': token['id'],
-                            'symbol': token.get('symbol', 'UNKNOWN'),
-                            'name': token.get('name', 'Unknown'),
-                            'decimals': int(token.get('decimals', 18)),
-                            'total_supply': float(token.get('totalSupply', 0)),
-                            'volume_usd': float(token.get('tradeVolumeUSD', 0)),
-                            'liquidity_usd': float(token.get('totalLiquidity', 0)),
-                            'tx_count': int(token.get('txCount', 0)),
-                            'current_price': current_price,
-                            'derived_eth': float(token.get('derivedETH', 0))
-                        }
-                    
-                    if parsed_token['liquidity_usd'] >= get_dynamic_config().get('min_liquidity_threshold', 10000):
-                        parsed.append(parsed_token)
-                        
-                except (ValueError, KeyError):
-                    continue
-            
-            return parsed
-            
-        except Exception as e:
-            return []
-
-    async def analyze_token_signal(self, token: Dict, chain: str, dex: str):
-        try:
-            token_key = f"{chain}_{token['id']}"
-            current_price = token.get('current_price', 0)
-            
-            if current_price <= 0:
+            token_info = await web3_manager.get_token_info(token_address, chain)
+            if not token_info:
                 return
-            
-            self.price_history[token_key].append(current_price)
-            self.volume_history[token_key].append(token.get('volume_usd', 0))
-            
-            if len(self.price_history[token_key]) < 5:
-                return
-            
-            price_change_24h = await self.calculate_price_change(token_key, current_price)
-            momentum_score = await self.calculate_momentum_score(token_key, token)
-            velocity = self.calculate_velocity(self.price_history[token_key])
-            volatility = self.calculate_volatility(self.price_history[token_key])
-            order_flow = self.calculate_order_flow_imbalance(token)
-            confidence = self.calculate_confidence_score(token, momentum_score)
-            
-            config = get_dynamic_config()
-            
-            if (config['min_price_change'] <= abs(price_change_24h) <= config['max_price_change'] and
-                momentum_score >= config['momentum_threshold'] and
-                confidence >= config['confidence_threshold'] and
-                token['liquidity_usd'] >= config['min_liquidity_threshold']):
                 
-                signal = ProductionTokenSignal(
-                    address=token['id'],
+            security_analysis = await web3_manager.analyze_contract_security(token_address, chain)
+            if not security_analysis['safe']:
+                return
+            
+            price = float(pair.get('priceUsd', 0))
+            volume_24h = float(pair.get('volume', {}).get('h24', 0))
+            liquidity = float(pair.get('liquidity', {}).get('usd', 0))
+            
+            if price <= 0 or volume_24h < 10000 or liquidity < 50000:
+                return
+                
+            token_key = f"{chain}_{token_address}"
+            self.price_history[token_key].append((time.time(), price))
+            self.volume_history[token_key].append((time.time(), volume_24h))
+            
+            if len(self.price_history[token_key]) >= 10:
+                await self.check_momentum_breakout(token_key, pair, chain)
+                
+        except Exception as e:
+            self.logger.error(f"Error analyzing token: {e}")
+
+    async def monitor_price_movements(self, chain: str):
+        while self.running:
+            try:
+                for token_key in list(self.price_history.keys()):
+                    if chain in token_key:
+                        await self.update_token_price(token_key, chain)
+                        
+                await asyncio.sleep(2)
+                
+            except Exception as e:
+                await asyncio.sleep(10)
+
+    async def update_token_price(self, token_key: str, chain: str):
+        try:
+            _, token_address = token_key.split('_', 1)
+            
+            current_price = await web3_manager.get_token_price(token_address, chain)
+            if current_price:
+                self.price_history[token_key].append((time.time(), current_price))
+                
+                if len(self.price_history[token_key]) >= 20:
+                    await self.detect_price_momentum(token_key, chain)
+                    
+        except Exception as e:
+            self.logger.debug(f"Error updating price for {token_key}: {e}")
+
+    async def detect_price_momentum(self, token_key: str, chain: str):
+        price_data = list(self.price_history[token_key])
+        
+        if len(price_data) < 20:
+            return
+            
+        current_time = time.time()
+        
+        prices_1m = [p[1] for p in price_data if current_time - p[0] <= 60]
+        prices_5m = [p[1] for p in price_data if current_time - p[0] <= 300]
+        
+        if len(prices_1m) < 5 or len(prices_5m) < 10:
+            return
+            
+        price_change_1m = ((prices_1m[-1] - prices_1m[0]) / prices_1m[0]) * 100
+        price_change_5m = ((prices_5m[-1] - prices_5m[0]) / prices_5m[0]) * 100
+        
+        if 9 <= price_change_1m <= 15:
+            momentum_score = self.calculate_momentum_score(prices_1m, prices_5m)
+            velocity = self.calculate_velocity(prices_1m)
+            volatility = self.calculate_volatility(prices_1m)
+            breakout_strength = self.calculate_breakout_strength(price_data)
+            
+            if momentum_score >= 0.7 and breakout_strength >= 0.6:
+                await self.create_signal(token_key, chain, price_change_1m, price_change_5m, 
+                                       momentum_score, velocity, volatility, breakout_strength)
+
+    def calculate_momentum_score(self, prices_1m: List[float], prices_5m: List[float]) -> float:
+        if len(prices_1m) < 3 or len(prices_5m) < 5:
+            return 0.0
+            
+        recent_trend = np.polyfit(range(len(prices_1m)), prices_1m, 1)[0]
+        baseline_trend = np.polyfit(range(len(prices_5m)), prices_5m, 1)[0]
+        
+        trend_acceleration = recent_trend / (baseline_trend + 1e-10)
+        
+        price_ratio = prices_1m[-1] / np.mean(prices_5m)
+        
+        volume_factor = 1.0
+        
+        momentum = (trend_acceleration * 0.5 + price_ratio * 0.3 + volume_factor * 0.2)
+        
+        return np.clip(momentum / 2, 0.0, 1.0)
+
+    def calculate_velocity(self, prices: List[float]) -> float:
+        if len(prices) < 3:
+            return 0.0
+            
+        returns = np.diff(prices) / (np.array(prices[:-1]) + 1e-10)
+        velocity = np.mean(returns[-3:])
+        
+        return np.clip(velocity * 20 + 0.5, 0.0, 1.0)
+
+    def calculate_volatility(self, prices: List[float]) -> float:
+        if len(prices) < 2:
+            return 0.0
+            
+        returns = np.diff(prices) / (np.array(prices[:-1]) + 1e-10)
+        volatility = np.std(returns)
+        
+        return np.clip(volatility * 50, 0.0, 1.0)
+
+    def calculate_breakout_strength(self, price_data: List[Tuple]) -> float:
+        if len(price_data) < 30:
+            return 0.0
+            
+        recent_prices = [p[1] for p in price_data[-15:]]
+        older_prices = [p[1] for p in price_data[-30:-15]]
+        
+        recent_vol = np.std(recent_prices) / (np.mean(recent_prices) + 1e-10)
+        older_vol = np.std(older_prices) / (np.mean(older_prices) + 1e-10)
+        
+        volatility_spike = recent_vol / (older_vol + 1e-10)
+        
+        price_jump = recent_prices[-1] / (np.mean(older_prices) + 1e-10)
+        
+        strength = min(volatility_spike * price_jump, 3.0) / 3.0
+        
+        return np.clip(strength, 0.0, 1.0)
+
+    async def create_signal(self, token_key: str, chain: str, price_change_1m: float, 
+                          price_change_5m: float, momentum_score: float, velocity: float, 
+                          volatility: float, breakout_strength: float):
+        try:
+            _, token_address = token_key.split('_', 1)
+            
+            token_info = await web3_manager.get_token_info(token_address, chain)
+            if not token_info:
+                return
+                
+            current_price = self.price_history[token_key][-1][1]
+            
+            weth_address = web3_manager.chains[chain]['weth']
+            pair_info = await web3_manager.get_pair_info(token_address, weth_address, chain)
+            
+            confidence = min(momentum_score * breakout_strength * (1 - volatility * 0.5), 1.0)
+            
+            if confidence >= 0.75:
+                signal = RealTokenSignal(
+                    address=token_address,
                     chain=chain,
-                    symbol=token['symbol'],
-                    name=token['name'],
+                    symbol=token_info.symbol,
+                    name=token_info.name,
                     price=current_price,
-                    volume_24h=token.get('volume_usd', 0),
-                    price_change_24h=price_change_24h,
+                    volume_24h=np.mean([v[1] for v in list(self.volume_history[token_key])[-10:]]),
+                    price_change_1m=price_change_1m,
+                    price_change_5m=price_change_5m,
                     momentum_score=momentum_score,
-                    liquidity_usd=token['liquidity_usd'],
-                    market_cap=current_price * token.get('total_supply', 0),
-                    holder_count=self.estimate_holder_count(token),
-                    tx_count_24h=token.get('tx_count', 0),
+                    liquidity_usd=0.0,
+                    market_cap=current_price * token_info.total_supply / (10 ** token_info.decimals),
                     detected_at=time.time(),
                     confidence=confidence,
                     velocity=velocity,
                     volatility=volatility,
-                    order_flow_imbalance=order_flow,
-                    dex_source=dex,
-                    pair_address=''
+                    breakout_strength=breakout_strength,
+                    pair_address=pair_info.address if pair_info else '',
+                    reserve0=pair_info.reserve0 if pair_info else 0,
+                    reserve1=pair_info.reserve1 if pair_info else 0
                 )
                 
                 try:
                     self.signal_queue.put_nowait(signal)
                     self.stats['signals_generated'] += 1
+                    
+                    self.logger.info(f"SIGNAL: {token_info.symbol} {price_change_1m:+.1f}% momentum={momentum_score:.2f} confidence={confidence:.2f}")
+                    
                 except asyncio.QueueFull:
                     pass
                     
         except Exception as e:
-            self.stats['errors'] += 1
-
-    async def calculate_price_change(self, token_key: str, current_price: float) -> float:
-        price_hist = list(self.price_history[token_key])
-        if len(price_hist) < 24:
-            return 0.0
-        
-        day_ago_price = price_hist[-24] if len(price_hist) >= 24 else price_hist[0]
-        if day_ago_price <= 0:
-            return 0.0
-        
-        return ((current_price - day_ago_price) / day_ago_price) * 100
-
-    async def calculate_momentum_score(self, token_key: str, token: Dict) -> float:
-        price_hist = np.array(list(self.price_history[token_key]))
-        volume_hist = np.array(list(self.volume_history[token_key]))
-        
-        if len(price_hist) < 10:
-            return 0.0
-        
-        recent_prices = price_hist[-5:]
-        older_prices = price_hist[-10:-5]
-        
-        price_momentum = 0.0
-        if len(older_prices) > 0 and np.mean(older_prices) > 0:
-            price_momentum = (np.mean(recent_prices) - np.mean(older_prices)) / np.mean(older_prices)
-        
-        volume_momentum = 0.0
-        if len(volume_hist) >= 5:
-            recent_vol = np.mean(volume_hist[-5:])
-            older_vol = np.mean(volume_hist[-10:-5]) if len(volume_hist) >= 10 else recent_vol
-            if older_vol > 0:
-                volume_momentum = (recent_vol - older_vol) / older_vol
-        
-        acceleration = 0.0
-        if len(price_hist) >= 3:
-            returns = np.diff(price_hist[-3:]) / (price_hist[-3:-1] + 1e-10)
-            if len(returns) >= 2:
-                acceleration = returns[-1] - returns[-2]
-        
-        momentum = (
-            price_momentum * 0.4 +
-            min(volume_momentum, 2.0) * 0.3 +
-            acceleration * 0.3
-        )
-        
-        return np.clip(momentum * 2 + 0.5, 0.0, 1.0)
-
-    def calculate_velocity(self, price_history: deque) -> float:
-        if len(price_history) < 2:
-            return 0.0
-        
-        prices = np.array(list(price_history))
-        returns = np.diff(prices) / (prices[:-1] + 1e-10)
-        velocity = np.mean(returns[-5:]) if len(returns) >= 5 else np.mean(returns)
-        
-        return np.clip(velocity * 20 + 0.5, 0.0, 1.0)
-
-    def calculate_volatility(self, price_history: deque) -> float:
-        if len(price_history) < 2:
-            return 0.0
-        
-        prices = np.array(list(price_history))
-        returns = np.diff(prices) / (prices[:-1] + 1e-10)
-        volatility = np.std(returns)
-        
-        return np.clip(volatility * 50, 0.0, 1.0)
-
-    def calculate_order_flow_imbalance(self, token: Dict) -> float:
-        tx_count = token.get('tx_count', 0)
-        volume = token.get('volume_usd', 0)
-        
-        if tx_count == 0 or volume == 0:
-            return 0.0
-        
-        avg_tx_size = volume / tx_count
-        normalized_size = np.tanh(avg_tx_size / 5000)
-        
-        return normalized_size
-
-    def calculate_confidence_score(self, token: Dict, momentum_score: float) -> float:
-        liquidity_factor = min(token['liquidity_usd'] / 50000, 1.0)
-        volume_factor = min(token.get('volume_usd', 0) / 25000, 1.0)
-        tx_factor = min(token.get('tx_count', 0) / 500, 1.0)
-        
-        confidence = (
-            momentum_score * 0.35 +
-            liquidity_factor * 0.30 +
-            volume_factor * 0.20 +
-            tx_factor * 0.15
-        )
-        
-        return np.clip(confidence, 0.0, 1.0)
-
-    def estimate_holder_count(self, token: Dict) -> int:
-        tx_count = token.get('tx_count', 0)
-        liquidity = token.get('liquidity_usd', 0)
-        
-        base_holders = int(tx_count * 0.15)
-        liquidity_multiplier = min(liquidity / 100000, 5.0)
-        
-        return int(base_holders * liquidity_multiplier)
+            self.logger.error(f"Error creating signal: {e}")
 
     async def websocket_monitor(self, chain: str):
         while self.running:
             try:
-                rpc_url = self.chain_configs[chain]['rpc']
-                ws_url = rpc_url.replace('https://', 'wss://').replace('http://', 'ws://')
-                
-                if 'demo' in rpc_url:
-                    await asyncio.sleep(10)
-                    continue
-                
-                async with websockets.connect(ws_url) as websocket:
-                    self.ws_connections[chain] = websocket
-                    
-                    subscribe_msg = {
-                        "jsonrpc": "2.0",
-                        "id": 1,
-                        "method": "eth_subscribe",
-                        "params": ["newPendingTransactions"]
-                    }
-                    
-                    await websocket.send(json.dumps(subscribe_msg))
-                    
-                    async for message in websocket:
-                        if not self.running:
-                            break
-                        
-                        try:
-                            data = json.loads(message)
-                            await self.process_websocket_data(data, chain)
-                        except Exception as e:
-                            continue
-                            
-            except Exception as e:
-                await asyncio.sleep(5)
-
-    async def process_websocket_data(self, data: Dict, chain: str):
-        if 'params' in data and 'result' in data['params']:
-            tx_hash = data['params']['result']
-            await self.analyze_pending_transaction(tx_hash, chain)
-
-    async def analyze_pending_transaction(self, tx_hash: str, chain: str):
-        try:
-            await asyncio.sleep(0.01)
-            
-            if np.random.random() > 0.99:
-                self.stats['tokens_scanned'] += 1
-                
-        except Exception as e:
-            pass
-
-    async def price_tracker(self):
-        while self.running:
-            try:
-                await asyncio.sleep(5)
+                await asyncio.sleep(10)
             except Exception as e:
                 await asyncio.sleep(30)
 
@@ -547,39 +321,29 @@ class ProductionRealTimeScanner:
         while self.running:
             try:
                 await asyncio.sleep(1)
+                
+                for token_key in list(self.price_history.keys()):
+                    if len(self.price_history[token_key]) >= 30:
+                        chain = token_key.split('_')[0]
+                        await self.detect_price_momentum(token_key, chain)
+                        
             except Exception as e:
                 await asyncio.sleep(5)
 
-    async def performance_monitor(self):
+    async def performance_tracker(self):
         while self.running:
             try:
                 runtime = time.time() - self.stats['start_time']
                 tokens_per_hour = (self.stats['tokens_scanned'] / runtime) * 3600 if runtime > 0 else 0
-                daily_projection = tokens_per_hour * 24
                 
-                self.logger.info("=" * 80)
-                self.logger.info("📊 PRODUCTION REAL-TIME SCANNER")
-                self.logger.info("=" * 80)
-                self.logger.info(f"⏱️  Runtime: {runtime/60:.1f} minutes")
-                self.logger.info(f"🔍 Tokens scanned: {self.stats['tokens_scanned']:,}")
-                self.logger.info(f"📊 Signals generated: {self.stats['signals_generated']:,}")
-                self.logger.info(f"🌐 API calls: {self.stats['api_calls']:,}")
-                self.logger.info(f"💾 Cache hits: {self.stats['cache_hits']:,}")
-                self.logger.info(f"❌ Errors: {self.stats['errors']:,}")
-                self.logger.info(f"🚀 Scan rate: {tokens_per_hour:.0f} tokens/hour")
-                self.logger.info(f"🎯 Daily projection: {daily_projection:.0f}/day")
-                self.logger.info(f"🏆 Target (10k): {min(daily_projection/10000*100, 100):.1f}%")
-                self.logger.info(f"⚙️  Workers: {self.worker_count}")
-                self.logger.info(f"💾 Queue: {self.signal_queue.qsize()}")
-                self.logger.info(f"🔗 Discovered: {len(self.discovered_tokens):,}")
-                self.logger.info("=" * 80)
+                self.logger.info(f"Scanner: {self.stats['tokens_scanned']} tokens, {self.stats['signals_generated']} signals, {tokens_per_hour:.0f}/hour")
                 
                 await asyncio.sleep(60)
                 
             except Exception as e:
                 await asyncio.sleep(120)
 
-    async def get_signals(self, max_signals: int = 50) -> List[ProductionTokenSignal]:
+    async def get_signals(self, max_signals: int = 50) -> List[RealTokenSignal]:
         signals = []
         
         for _ in range(max_signals):
@@ -588,20 +352,27 @@ class ProductionRealTimeScanner:
                 signals.append(signal)
             except asyncio.TimeoutError:
                 break
+                
+        return sorted(signals, key=lambda x: x.confidence * x.momentum_score, reverse=True)
+
+    async def check_momentum_breakout(self, token_key: str, pair: Dict, chain: str):
+        price_data = list(self.price_history[token_key])
         
-        return sorted(signals, 
-                     key=lambda x: x.momentum_score * x.confidence * (x.volume_24h / 100000), 
-                     reverse=True)
+        if len(price_data) < 10:
+            return
+            
+        current_price = price_data[-1][1]
+        baseline_price = np.mean([p[1] for p in price_data[:-5]])
+        
+        price_change = ((current_price - baseline_price) / baseline_price) * 100
+        
+        if 9 <= price_change <= 15:
+            await self.detect_price_momentum(token_key, chain)
 
     async def shutdown(self):
         self.running = False
         if self.session:
             await self.session.close()
-        
-        for ws in self.ws_connections.values():
-            try:
-                await ws.close()
-            except:
-                pass
+        await web3_manager.close()
 
-production_scanner = ProductionRealTimeScanner()
+production_scanner = RealProductionScanner()
