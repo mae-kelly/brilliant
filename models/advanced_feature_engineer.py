@@ -1,3 +1,19 @@
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "config"))
+try:
+    from dynamic_parameters import get_dynamic_config, update_performance
+except ImportError:
+    def get_dynamic_config(): return {
+        "confidence_threshold": 0.75, "momentum_threshold": 0.65, "volatility_threshold": 0.10,
+        "liquidity_threshold": 50000, "min_liquidity_threshold": 10000, "max_risk_score": 0.4,
+        "max_slippage": 0.03, "stop_loss_threshold": 0.05, "take_profit_threshold": 0.12,
+        "max_hold_time": 300, "min_price_change": 5, "max_price_change": 15,
+        "max_position_size": 10.0, "starting_capital": 10.0
+    }
+    def update_performance(*args): pass
+
 import numpy as np
 from dataclasses import dataclass
 

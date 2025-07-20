@@ -56,8 +56,8 @@ class DynamicSettings:
     
     def calculate_kelly_criterion(self, confidence: float) -> float:
         win_prob = confidence
-        avg_win = 0.12
-        avg_loss = 0.05
+        avg_win = get_dynamic_config().get("take_profit_threshold", 0.12)
+        avg_loss = get_dynamic_config().get("stop_loss_threshold", 0.05)
         
         kelly = (win_prob * avg_win - (1 - win_prob) * avg_loss) / avg_win
         return max(0, min(kelly, 0.25))

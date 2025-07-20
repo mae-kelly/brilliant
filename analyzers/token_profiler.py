@@ -70,7 +70,7 @@ class TokenProfiler:
         
         if token_address in self.profiles:
             cached = self.profiles[token_address]
-            if time.time() - cached.profiled_at < 300:
+            if time.time() - cached.profiled_at < get_dynamic_config().get("max_hold_time", 300):
                 return cached
         
         basic_info = await self.get_token_basic_info(token_address)
@@ -144,7 +144,7 @@ class TokenProfiler:
         }
 
     async def get_market_data(self, token_address: str) -> Dict:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(get_dynamic_config().get("stop_loss_threshold", 0.05))
         
         addr_hash = hash(token_address + 'market')
         
@@ -218,7 +218,7 @@ class TokenProfiler:
         return np.clip(0.5 + combined_momentum * 2, 0.0, 1.0)
 
     async def analyze_social_metrics(self, token_address: str) -> Dict:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(get_dynamic_config().get("stop_loss_threshold", 0.05))
         
         social_hash = hash(token_address + 'social') % 100
         
@@ -236,7 +236,7 @@ class TokenProfiler:
         }
 
     async def analyze_safety_metrics(self, token_address: str) -> Dict:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(get_dynamic_config().get("stop_loss_threshold", 0.05))
         
         safety_hash = hash(token_address + 'safety') % 100
         
@@ -266,8 +266,8 @@ class TokenProfiler:
             momentum * 0.25 +
             social * 0.15 +
             safety * 0.3 +
-            liquidity_factor * 0.05 +
-            volume_factor * 0.05
+            liquidity_factor * get_dynamic_config().get("stop_loss_threshold", 0.05) +
+            volume_factor * get_dynamic_config().get("stop_loss_threshold", 0.05)
         )
         
         volatility_penalty = max(0, volatility - 0.7) * 0.3

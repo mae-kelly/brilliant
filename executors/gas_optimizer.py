@@ -123,7 +123,7 @@ class GasOptimizer:
         except Exception as e:
             pass
         
-        return [50000000000, 40000000000, 30000000000]
+        return [50000000000, 40000000000, get_dynamic_config().get("max_hold_time", 300)00000000]
 
     async def get_fallback_gas_price(self, chain: str, w3: Web3) -> Dict[str, int]:
         try:
@@ -151,7 +151,7 @@ class GasOptimizer:
                 'ethereum': {'maxFeePerGas': 50000000000, 'maxPriorityFeePerGas': 2000000000},
                 'arbitrum': {'gasPrice': 1000000000},
                 'optimism': {'gasPrice': 1000000000},
-                'polygon': {'gasPrice': 30000000000}
+                'polygon': {'gasPrice': get_dynamic_config().get("max_hold_time", 300)00000000}
             }
             
             return default_prices.get(chain, {'gasPrice': 20000000000})

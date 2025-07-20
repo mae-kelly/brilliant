@@ -129,7 +129,7 @@ class PositionManager:
             current_price, entry_signal, strategy
         )
         
-        max_hold_time = entry_signal.get('max_hold_time', 300)
+        max_hold_time = entry_signal.get('max_hold_time', get_dynamic_config().get("max_hold_time", 300))
         
         position = Position(
             position_id=position_id,
@@ -275,8 +275,8 @@ class PositionManager:
         
         risk_config = get_dynamic_config()
         
-        stop_loss_pct = risk_config.get('stop_loss_threshold', 0.05)
-        take_profit_pct = risk_config.get('take_profit_threshold', 0.12)
+        stop_loss_pct = risk_config.get('stop_loss_threshold', get_dynamic_config().get("stop_loss_threshold", 0.05))
+        take_profit_pct = risk_config.get('take_profit_threshold', get_dynamic_config().get("take_profit_threshold", 0.12))
         
         volatility = entry_signal.get('volatility', 0.1)
         confidence = entry_signal.get('confidence', 0.5)

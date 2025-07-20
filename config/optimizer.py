@@ -67,11 +67,11 @@ class BayesianParameterOptimizer:
             'confidence_threshold': (0.60, 0.95),
             'min_momentum_score': (0.50, 0.90),
             'position_size_multiplier': (0.5, 2.0),
-            'max_hold_time': (60, 600),
-            'slippage_tolerance': (0.005, 0.05),
+            'max_hold_time': (60, get_dynamic_config().get("max_hold_time", 600)),
+            'slippage_tolerance': (0.005, get_dynamic_config().get("stop_loss_threshold", 0.05)),
             'stop_loss_threshold': (0.02, 0.15),
-            'take_profit_threshold': (0.05, 0.30),
-            'volatility_threshold': (0.05, 0.25),
+            'take_profit_threshold': (get_dynamic_config().get("stop_loss_threshold", 0.05), 0.30),
+            'volatility_threshold': (get_dynamic_config().get("stop_loss_threshold", 0.05), 0.25),
             'volume_threshold': (1000, 100000),
             'liquidity_threshold': (10000, 500000)
         }
@@ -81,10 +81,10 @@ class BayesianParameterOptimizer:
             confidence_threshold=0.75,
             min_momentum_score=0.65,
             position_size_multiplier=1.0,
-            max_hold_time=180,
+            max_hold_time=get_dynamic_config().get("default_hold_time", 180),
             slippage_tolerance=0.015,
-            stop_loss_threshold=0.05,
-            take_profit_threshold=0.12,
+            stop_loss_threshold=get_dynamic_config().get("stop_loss_threshold", 0.05),
+            take_profit_threshold=get_dynamic_config().get("take_profit_threshold", 0.12),
             volatility_threshold=0.10,
             volume_threshold=25000,
             liquidity_threshold=50000
@@ -165,7 +165,7 @@ class BayesianParameterOptimizer:
             win_rate_score * 0.25 +
             sharpe_score * 0.20 +
             drawdown_penalty * 0.15 +
-            trade_volume_bonus * 0.05
+            trade_volume_bonus * get_dynamic_config().get("stop_loss_threshold", 0.05)
         )
         
         return float(np.clip(score, -1.0, 1.0))
@@ -282,7 +282,7 @@ if __name__ == "__main__":
     
     # Simulate some performance data
     for i in range(20):
-        roi = np.random.normal(0.05, 0.03)
+        roi = np.random.normal(get_dynamic_config().get("stop_loss_threshold", 0.05), get_dynamic_config().get("max_slippage", 0.03))
         win_rate = np.random.uniform(0.4, 0.8)
         sharpe = np.random.normal(1.2, 0.5)
         drawdown = np.random.uniform(0.02, 0.15)

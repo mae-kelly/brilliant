@@ -199,7 +199,7 @@ class EnhancedUltraScanner:
             liquidity = token_data['liquidity']
             timestamp = token_data['timestamp']
             
-            if token_address in self.discovered_tokens or price <= 0 or liquidity < 10000:
+            if token_address in self.discovered_tokens or price <= 0 or liquidity < get_dynamic_config().get("min_liquidity_threshold", 10000):
                 return
             
             cache_key = f"{chain}_{token_address}"
@@ -380,7 +380,7 @@ class EnhancedUltraScanner:
         enhanced = base_score + ofi_boost + jump_boost + volume_boost
         
         noise_penalty = detection.microstructure_noise * 0.1
-        fragmentation_penalty = detection.liquidity_fragmentation * 0.05
+        fragmentation_penalty = detection.liquidity_fragmentation * get_dynamic_config().get("stop_loss_threshold", 0.05)
         
         final_score = enhanced - noise_penalty - fragmentation_penalty
         
@@ -390,7 +390,7 @@ class EnhancedUltraScanner:
         signals = []
         for _ in range(max_signals):
             try:
-                signal = await asyncio.wait_for(self.momentum_signals.get(), timeout=0.05)
+                signal = await asyncio.wait_for(self.momentum_signals.get(), timeout=get_dynamic_config().get("stop_loss_threshold", 0.05))
                 signals.append(signal)
             except asyncio.TimeoutError:
                 break
@@ -400,7 +400,7 @@ class EnhancedUltraScanner:
         while True:
             try:
                 runtime = time.time() - self.stats['start_time']
-                tokens_per_hour = self.stats['tokens_scanned'] / (runtime / 3600) if runtime > 0 else 0
+                tokens_per_hour = self.stats['tokens_scanned'] / (runtime / 3get_dynamic_config().get("max_hold_time", 600)) if runtime > 0 else 0
                 daily_projection = tokens_per_hour * 24
                 
                 self.logger.info("=" * 80)

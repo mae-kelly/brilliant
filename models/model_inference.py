@@ -62,9 +62,9 @@ class BreakoutArchetypeProfiler:
     def _load_profiles(self):
         # Define or load hardcoded clusters of past breakout patterns
         return {
-            "low_liquidity_burst": {"liquidity_delta": (0.05, 0.2), "volatility": (0.01, 0.05), "velocity": (0.015, 0.05)},
+            "low_liquidity_burst": {"liquidity_delta": (get_dynamic_config().get("stop_loss_threshold", 0.05), 0.2), "volatility": (0.01, get_dynamic_config().get("stop_loss_threshold", 0.05)), "velocity": (0.015, get_dynamic_config().get("stop_loss_threshold", 0.05))},
             "whale_injected": {"liquidity_delta": (0.3, 1.0), "volume_delta": (0.5, 1.5), "velocity": (0.02, 0.1)},
-            "bot_competed": {"volatility": (0.08, 0.3), "velocity": (0.03, 0.12), "volume_delta": (0.3, 1.0)}
+            "bot_competed": {"volatility": (0.08, 0.3), "velocity": (get_dynamic_config().get("max_slippage", 0.03), get_dynamic_config().get("take_profit_threshold", 0.12)), "volume_delta": (0.3, 1.0)}
         }
 
     def match(self, token_data):
@@ -166,7 +166,7 @@ class BreakoutPredictor:
         return np.clip(0.9 + v * 4.2, 0.75, 1.25)
 
     def report(self, result):
-        color = "🟢" if result["prob"] > 0.9 else "🟡" if result["prob"] > 0.75 else "🔴"
+        color = "🟢" if result["prob"] > 0.9 else "🟡" if result["prob"] > get_dynamic_config().get("confidence_threshold", 0.75) else "🔴"
         print(f"{color} [{result['token'][:6]}...] | P={result['prob']:.4f} | E={result['entropy']:.3f} | D={result['decay']:.2f} | A={result['archetype']}")
 
     def adapt_thresholds(self, feedback_rois):

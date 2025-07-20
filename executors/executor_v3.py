@@ -194,7 +194,7 @@ class ProductionDEXRouter:
             
             nonce = w3.eth.get_transaction_count(account.address)
             gas_price = await self.get_optimal_gas_price(w3, chain)
-            deadline = int(time.time()) + 300
+            deadline = int(time.time()) + get_dynamic_config().get("max_hold_time", 300)
             
             if token_in.lower() == chain_config['weth'].lower():
                 tx_data = router_contract.functions.swapExactETHForTokens(
@@ -205,7 +205,7 @@ class ProductionDEXRouter:
                 ).build_transaction({
                     'from': account.address,
                     'value': amount_in,
-                    'gas': 300000,
+                    'gas': get_dynamic_config().get("max_hold_time", 300)000,
                     'gasPrice': gas_price,
                     'nonce': nonce
                 })

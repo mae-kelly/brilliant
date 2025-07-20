@@ -185,7 +185,7 @@ class RenaissanceProductionSystem:
     async def start_production_trading(self, duration_hours: int = 24):
         self.running = True
         self.start_time = time.time()
-        end_time = self.start_time + (duration_hours * 3600)
+        end_time = self.start_time + (duration_hours * 3get_dynamic_config().get("max_hold_time", 600))
         
         self.logger.info(f"🎯 Starting production trading for {duration_hours} hours")
         self.logger.info(f"💰 Initial portfolio: ${self.portfolio_value:.2f}")
@@ -231,7 +231,7 @@ class RenaissanceProductionSystem:
                 return await self.simulate_signal_processing(signal)
             
             rug_analysis = await anti_rug_analyzer.analyze_token_safety(signal.address)
-            if rug_analysis.risk_score > 0.4:
+            if rug_analysis.risk_score > get_dynamic_config().get("max_risk_score", 0.4):
                 return
             
             token_profile = await token_profiler.profile_token(signal.address, signal.chain)
@@ -257,7 +257,7 @@ class RenaissanceProductionSystem:
                     {
                         'confidence': confidence,
                         'momentum_score': signal.momentum_score,
-                        'max_hold_time': 300,
+                        'max_hold_time': get_dynamic_config().get("max_hold_time", 300),
                         'risk_params': {'momentum_exit_threshold': 0.7}
                     }
                 )
@@ -294,7 +294,7 @@ class RenaissanceProductionSystem:
         
         while self.running:
             try:
-                opportunities = await cross_chain_arbitrage.get_opportunities(min_profit=0.03)
+                opportunities = await cross_chain_arbitrage.get_opportunities(min_profit=get_dynamic_config().get("max_slippage", 0.03))
                 
                 for opp in opportunities[:3]:
                     self.logger.info(
@@ -380,7 +380,7 @@ class RenaissanceProductionSystem:
         while self.running:
             try:
                 runtime = time.time() - self.start_time if self.start_time else 0
-                tokens_per_hour = (self.system_stats['tokens_scanned'] / runtime) * 3600 if runtime > 0 else 0
+                tokens_per_hour = (self.system_stats['tokens_scanned'] / runtime) * 3get_dynamic_config().get("max_hold_time", 600) if runtime > 0 else 0
                 daily_projection = tokens_per_hour * 24
                 
                 roi_percent = ((self.portfolio_value - 10.0) / 10.0) * 100
@@ -388,7 +388,7 @@ class RenaissanceProductionSystem:
                 self.logger.info("=" * 80)
                 self.logger.info("📊 RENAISSANCE PRODUCTION SYSTEM - PERFORMANCE REPORT")
                 self.logger.info("=" * 80)
-                self.logger.info(f"⏱️  Runtime: {runtime/3600:.2f} hours")
+                self.logger.info(f"⏱️  Runtime: {runtime/3get_dynamic_config().get("max_hold_time", 600):.2f} hours")
                 self.logger.info(f"🔍 Tokens scanned: {self.system_stats['tokens_scanned']:,}")
                 self.logger.info(f"📊 Signals generated: {self.system_stats['signals_generated']:,}")
                 self.logger.info(f"💼 Trades executed: {self.system_stats['trades_executed']:,}")
@@ -452,7 +452,7 @@ class RenaissanceProductionSystem:
         self.logger.info("=" * 80)
         self.logger.info("🏁 FINAL RENAISSANCE SYSTEM REPORT")
         self.logger.info("=" * 80)
-        self.logger.info(f"⏱️  Total runtime: {runtime/3600:.2f} hours")
+        self.logger.info(f"⏱️  Total runtime: {runtime/3get_dynamic_config().get("max_hold_time", 600):.2f} hours")
         self.logger.info(f"🔍 Total tokens scanned: {self.system_stats['tokens_scanned']:,}")
         self.logger.info(f"📊 Total signals: {self.system_stats['signals_generated']:,}")
         self.logger.info(f"💼 Total trades: {self.system_stats['trades_executed']:,}")
@@ -494,3 +494,76 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# Database integration
+from data.database_manager import db_manager, TokenData, TradeRecord
+
+class DatabaseIntegratedSystem:
+    def __init__(self):
+        self.db = db_manager
+        self.trade_counter = 0
+    
+    async def initialize_with_database(self):
+        """Initialize system with database support"""
+        await self.db.initialize()
+        print("✅ Database layer initialized")
+    
+    async def cache_discovered_token(self, token_data: dict):
+        """Cache discovered token in database"""
+        token = TokenData(
+            address=token_data['address'],
+            chain=token_data['chain'],
+            symbol=token_data.get('symbol', ''),
+            name=token_data.get('name', ''),
+            price=token_data.get('price', 0.0),
+            volume_24h=token_data.get('volume_24h', 0.0),
+            liquidity_usd=token_data.get('liquidity_usd', 0.0),
+            momentum_score=token_data.get('momentum_score', 0.0),
+            velocity=token_data.get('velocity', 0.0),
+            volatility=token_data.get('volatility', 0.0)
+        )
+        
+        await self.db.cache_token(token)
+    
+    async def record_trade_execution(self, trade_data: dict):
+        """Record trade execution in database"""
+        self.trade_counter += 1
+        trade_id = f"trade_{int(time.time())}_{self.trade_counter}"
+        
+        trade = TradeRecord(
+            trade_id=trade_id,
+            token_address=trade_data['token_address'],
+            chain=trade_data['chain'],
+            side=trade_data['side'],
+            amount_usd=trade_data['amount_usd'],
+            amount_tokens=trade_data['amount_tokens'],
+            entry_price=trade_data['entry_price'],
+            confidence_score=trade_data.get('confidence_score', 0.0),
+            momentum_score=trade_data.get('momentum_score', 0.0),
+            tx_hash=trade_data.get('tx_hash', '')
+        )
+        
+        await self.db.record_trade(trade)
+        return trade_id
+    
+    async def update_trade_exit(self, trade_id: str, exit_data: dict):
+        """Update trade with exit information"""
+        await self.db.update_trade_exit(
+            trade_id=trade_id,
+            exit_price=exit_data['exit_price'],
+            profit_loss=exit_data['profit_loss'],
+            roi=exit_data['roi'],
+            exit_reason=exit_data['exit_reason']
+        )
+    
+    async def get_performance_metrics(self):
+        """Get comprehensive performance metrics"""
+        return await self.db.get_performance_summary(7)
+    
+    async def shutdown_database(self):
+        """Shutdown database connections"""
+        await self.db.close()
+
+# Add to existing renaissance_system
+if 'renaissance_system' in globals():
+    renaissance_system.db_system = DatabaseIntegratedSystem()

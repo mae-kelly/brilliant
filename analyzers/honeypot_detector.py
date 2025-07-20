@@ -86,7 +86,7 @@ class AntiRugAnalyzer:
         
         if token_address in self.analysis_cache:
             cached = self.analysis_cache[token_address]
-            if time.time() - cached.analyzed_at < 300:
+            if time.time() - cached.analyzed_at < get_dynamic_config().get("max_hold_time", 300):
                 return cached
         
         flags = []
@@ -178,7 +178,7 @@ class AntiRugAnalyzer:
         }
 
     async def analyze_liquidity_lock(self, token_address: str) -> Dict:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(get_dynamic_config().get("stop_loss_threshold", 0.05))
         
         lock_chance = hash(token_address + 'lock') % 100
         is_locked = lock_chance > 30
@@ -194,7 +194,7 @@ class AntiRugAnalyzer:
         }
 
     async def analyze_ownership(self, token_address: str) -> Dict:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(get_dynamic_config().get("stop_loss_threshold", 0.05))
         
         ownership_hash = hash(token_address + 'owner') % 100
         
@@ -223,7 +223,7 @@ class AntiRugAnalyzer:
         return min(sum(risk_factors), 1.0)
 
     async def simulate_sell_transaction(self, token_address: str) -> Dict:
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(get_dynamic_config().get("stop_loss_threshold", 0.05))
         
         sim_hash = hash(token_address + 'sim') % 100
         

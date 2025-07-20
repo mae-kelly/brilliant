@@ -60,7 +60,7 @@ class SocialSentimentAnalyzer:
     async def get_twitter_sentiment(self, token_symbol: str) -> float:
         await asyncio.sleep(0.1)
         
-        hash_val = hash(token_symbol + str(int(time.time() // 3600)))
+        hash_val = hash(token_symbol + str(int(time.time() // 3get_dynamic_config().get("max_hold_time", 600))))
         sentiment = (hash_val % 100) / 100.0
         
         return sentiment
@@ -68,13 +68,13 @@ class SocialSentimentAnalyzer:
     async def get_reddit_sentiment(self, token_symbol: str) -> float:
         await asyncio.sleep(0.1)
         
-        hash_val = hash(token_symbol + 'reddit' + str(int(time.time() // 3600)))
+        hash_val = hash(token_symbol + 'reddit' + str(int(time.time() // 3get_dynamic_config().get("max_hold_time", 600))))
         sentiment = (hash_val % 100) / 100.0
         
         return sentiment
     
     def simulate_mention_count(self, token_symbol: str) -> int:
-        hash_val = hash(token_symbol + str(int(time.time() // 600)))
+        hash_val = hash(token_symbol + str(int(time.time() // get_dynamic_config().get("max_hold_time", 600))))
         return (hash_val % 1000) + 10
     
     def calculate_sentiment_momentum(self, token_address: str, current_score: float) -> float:
