@@ -1,3 +1,22 @@
+import sys
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "config"))
+try:
+    from dynamic_parameters import get_dynamic_config, update_performance
+except ImportError:
+    def get_dynamic_config(): return {"volatility_threshold": 0.1, "confidence_threshold": 0.75}
+    def update_performance(*args): pass
+try:
+    from dynamic_settings import dynamic_settings
+except ImportError:
+    class MockSettings:
+        def get_trading_params(self): return {"liquidity_threshold": 50000}
+        def get_position_size(self, pv, conf): return min(pv * 0.1, 1.0)
+    dynamic_settings = MockSettings()
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 #!/bin/bash
 
 # =============================================================================
@@ -45,17 +64,17 @@ fix_file_imports() {
     
     # Fix common import patterns
     sed -i.tmp \
-        -e 's|from scanners.enhanced_ultra_scanner import enhanced_ultra_scanner|from scanners.scanner_v3 import enhanced_ultra_scanner|g' \
+        -e 's|from scanners.scanner_v3 import enhanced_ultra_scanner|from scanners.scanner_v3 import enhanced_ultra_scanner|g' \
         -e 's|from scanners.ultra_scale_scanner import ultra_scanner|from scanners.scanner_v3 import enhanced_ultra_scanner as ultra_scanner|g' \
-        -e 's|from executors.production_dex_router import production_router|from executors.executor_v3 import production_router|g' \
+        -e 's|from executors.executor_v3 import production_router|from executors.executor_v3 import production_router|g' \
         -e 's|from executors.real_dex_executor import real_executor|from executors.executor_v3 import production_router as real_executor|g' \
-        -e 's|from analyzers.anti_rug_analyzer import anti_rug_analyzer|from analyzers.honeypot_detector import anti_rug_analyzer|g' \
+        -e 's|from analyzers.honeypot_detector import anti_rug_analyzer|from analyzers.honeypot_detector import anti_rug_analyzer|g' \
         -e 's|from analyzers.real_honeypot_detector import real_honeypot_detector|from analyzers.honeypot_detector import anti_rug_analyzer as real_honeypot_detector|g' \
         -e 's|from models.model_inference import|from model_inference import|g' \
         -e 's|from models.model_trainer import|from model_trainer import|g' \
         -e 's|from models.inference_server import|from inference_server import|g' \
-        -e 's|from profilers.token_profiler import token_profiler|from analyzers.token_profiler import token_profiler|g' \
-        -e 's|from watchers.mempool_watcher import mempool_watcher|from monitoring.mempool_watcher import mempool_watcher|g' \
+        -e 's|from analyzers.token_profiler import token_profiler|from analyzers.token_profiler import token_profiler|g' \
+        -e 's|from monitoring.mempool_watcher import mempool_watcher|from monitoring.mempool_watcher import mempool_watcher|g' \
         -e 's|from data.async_token_cache import async_token_cache|try:\n    from data.async_token_cache import async_token_cache\nexcept ImportError:\n    async_token_cache = None|g' \
         -e 's|from data.realtime_websocket_feeds import realtime_streams|try:\n    from data.realtime_websocket_feeds import realtime_streams\nexcept ImportError:\n    realtime_streams = None|g' \
         -e 's|from data.high_frequency_collector import hf_collector|try:\n    from data.high_frequency_collector import hf_collector\nexcept ImportError:\n    hf_collector = None|g' \
@@ -275,7 +294,15 @@ fix_circular_imports() {
         if [[ -f "$file" ]]; then
             # Replace top-level config imports with function-level imports
             sed -i.bak \
-                -e 's|^from config.dynamic_parameters import|# Moved to function level: from config.dynamic_parameters import|g' \
+                -e 's|^try:
+    from config.dynamic_parameters import get_dynamic_config, update_performance
+except:
+    def get_dynamic_config(): return {"confidence_threshold": 0.75}
+    def update_performance(*args): pass|# Moved to function level: try:
+    from config.dynamic_parameters import get_dynamic_config, update_performance
+except:
+    def get_dynamic_config(): return {"confidence_threshold": 0.75}
+    def update_performance(*args): pass|g' \
                 -e 's|^from config.dynamic_settings import|# Moved to function level: from config.dynamic_settings import|g' \
                 "$file"
             

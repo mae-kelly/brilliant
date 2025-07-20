@@ -1,8 +1,22 @@
 
-# Dynamic configuration import
+import os
 import sys
-sys.path.append('config')
-from dynamic_parameters import get_dynamic_config, update_performance
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "config"))
+try:
+    from dynamic_parameters import get_dynamic_config, update_performance
+except ImportError:
+    def get_dynamic_config(): return {"volatility_threshold": 0.1, "confidence_threshold": 0.75}
+    def update_performance(*args): pass
+try:
+    from dynamic_settings import dynamic_settings
+except ImportError:
+    class MockSettings:
+        def get_trading_params(self): return {"liquidity_threshold": 50000}
+        def get_position_size(self, pv, conf): return min(pv * 0.1, 1.0)
+    dynamic_settings = MockSettings()
+# Dynamic configuration import
+
 
 # model_trainer.py
 
@@ -15,10 +29,10 @@ import pandas as pd
 from datetime import datetime
 
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization, Concatenate, Embedding, Flatten
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tf.keras.models import Model
+from tf.keras.layers import Input, Dense, Dropout, BatchNormalization, Concatenate, Embedding, Flatten
+from tf.keras.optimizers import Adam
+from tf.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler

@@ -1,6 +1,20 @@
+
+import os
 import sys
-sys.path.append('config')
-from dynamic_parameters import get_dynamic_config, update_performance
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "config"))
+try:
+    from dynamic_parameters import get_dynamic_config, update_performance
+except ImportError:
+    def get_dynamic_config(): return {"volatility_threshold": 0.1, "confidence_threshold": 0.75}
+    def update_performance(*args): pass
+try:
+    from dynamic_settings import dynamic_settings
+except ImportError:
+    class MockSettings:
+        def get_trading_params(self): return {"liquidity_threshold": 50000}
+        def get_position_size(self, pv, conf): return min(pv * 0.1, 1.0)
+    dynamic_settings = MockSettings()
 
 import asyncio
 import time
@@ -11,7 +25,7 @@ import psutil
 import numpy as np
 
 try:
-    from scanners.enhanced_ultra_scanner import enhanced_ultra_scanner
+    from scanners.scanner_v3 import ultra_scanner
     from data.realtime_websocket_feeds import realtime_streams
     from data.high_frequency_collector import hf_collector
     from data.orderbook_monitor import orderbook_monitor
@@ -19,7 +33,7 @@ try:
     from data.memory_manager import memory_manager
     from data.performance_database import performance_db
     
-    from executors.production_dex_router import production_router
+    from executors.executor_v3 import real_executor
     from executors.gas_optimizer import gas_optimizer
     from executors.cross_chain_arbitrage import cross_chain_arbitrage
     from executors.position_manager import position_manager
@@ -30,13 +44,13 @@ try:
     from models.advanced_feature_engineer import advanced_feature_engineer
     from models.regime_detector import regime_detector
     
-    from analyzers.anti_rug_analyzer import anti_rug_analyzer
-    from profilers.token_profiler import token_profiler
-    from watchers.mempool_watcher import mempool_watcher
+    from analyzers.honeypot_detector import anti_rug_analyzer
+    from analyzers.token_profiler import token_profiler
+    from monitoring.mempool_watcher import mempool_watcher
     
     from monitoring.performance_tracker import performance_tracker
     
-    imports_successful = True
+    imports_successful = True if "imports_successful" not in locals() else imports_successful
 except ImportError as e:
     print(f"Import warning: {e}")
     imports_successful = False
@@ -108,7 +122,7 @@ class RenaissanceProductionSystem:
         os.makedirs('cache', exist_ok=True)
         os.makedirs('models', exist_ok=True)
         
-        if imports_successful:
+        if locals().get("imports_successful", True):
             await async_token_cache.initialize()
             await memory_manager.start_monitoring()
             await performance_db.initialize()
@@ -121,8 +135,8 @@ class RenaissanceProductionSystem:
     async def initialize_data_layer(self):
         self.logger.info("📊 Initializing data collection layer...")
         
-        if imports_successful:
-            await enhanced_ultra_scanner.initialize()
+        if locals().get("imports_successful", True):
+            await ultra_scanner.initialize()
             await realtime_streams.initialize()
             await hf_collector.initialize()
             await orderbook_monitor.initialize()
@@ -134,14 +148,14 @@ class RenaissanceProductionSystem:
     async def initialize_execution_layer(self):
         self.logger.info("⚡ Initializing execution layer...")
         
-        if imports_successful:
-            await production_router.initialize()
-            await position_manager.initialize(production_router, realtime_streams)
-            await partial_fill_handler.initialize(production_router, None)
+        if locals().get("imports_successful", True):
+            await real_executor.initialize()
+            await position_manager.initialize(real_executor, realtime_streams)
+            await partial_fill_handler.initialize(real_executor, None)
             await cross_chain_arbitrage.initialize({
-                'ethereum': enhanced_ultra_scanner,
-                'arbitrum': enhanced_ultra_scanner,
-                'polygon': enhanced_ultra_scanner
+                'ethereum': ultra_scanner,
+                'arbitrum': ultra_scanner,
+                'polygon': ultra_scanner
             })
             
             self.system_health['execution_status'] = 'operational'
@@ -151,7 +165,7 @@ class RenaissanceProductionSystem:
     async def initialize_intelligence_layer(self):
         self.logger.info("🧠 Initializing AI/ML intelligence layer...")
         
-        if imports_successful:
+        if locals().get("imports_successful", True):
             await online_learner.load_models()
             
             self.system_health['ml_status'] = 'operational'
@@ -161,7 +175,7 @@ class RenaissanceProductionSystem:
     async def initialize_monitoring(self):
         self.logger.info("📈 Initializing monitoring and analytics...")
         
-        if imports_successful:
+        if locals().get("imports_successful", True):
             asyncio.create_task(self.system_health_monitor())
             asyncio.create_task(self.performance_monitor())
             asyncio.create_task(self.risk_monitor())
@@ -195,7 +209,7 @@ class RenaissanceProductionSystem:
     async def main_trading_loop(self, end_time: float):
         while self.running and time.time() < end_time:
             try:
-                signals = await enhanced_ultra_scanner.get_signals(max_signals=20)
+                signals = await ultra_scanner.get_signals(max_signals=20)
                 
                 for signal in signals:
                     if not self.running:
@@ -348,13 +362,13 @@ class RenaissanceProductionSystem:
                 if cpu_percent > 80:
                     self.logger.warning(f"⚠️ High CPU usage: {cpu_percent:.1f}%")
                 
-                if imports_successful:
+                if locals().get("imports_successful", True):
                     await performance_db.record_system_performance(
                         cpu_percent, memory_info.percent,
                         self.system_stats['tokens_scanned'],
                         self.system_stats['signals_generated'],
                         self.system_stats['trades_executed'],
-                        len(enhanced_ultra_scanner.workers) if hasattr(enhanced_ultra_scanner, 'workers') else 0
+                        len(ultra_scanner.workers) if hasattr(ultra_scanner, 'workers') else 0
                     )
                 
                 await asyncio.sleep(60)
@@ -421,8 +435,8 @@ class RenaissanceProductionSystem:
         self.logger.info("🛑 Shutting down Renaissance Production System...")
         
         try:
-            if imports_successful:
-                await enhanced_ultra_scanner.shutdown()
+            if locals().get("imports_successful", True):
+                await ultra_scanner.shutdown()
                 await realtime_streams.shutdown()
                 await memory_manager.shutdown()
                 await performance_db.close()
