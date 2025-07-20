@@ -24,7 +24,7 @@ class RealTimePipeline:
 
     async def initialize(self):
         try:
-            from scanners.ultra_scale_scanner import ultra_scanner
+            from scanners.scanner_v3 import ultra_scanner
             from models.advanced_feature_engineer import renaissance_features
             from models.online_learner import online_learner
             from executors.executor_v3 import real_executor

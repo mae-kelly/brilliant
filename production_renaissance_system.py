@@ -7,11 +7,11 @@ import psutil
 import numpy as np
 
 try:
-    from scanners.ultra_scale_scanner import ultra_scanner
+    from scanners.scanner_v3 import ultra_scanner
     from executors.executor_v3 import real_executor
     from models.online_learner import online_learner
     from models.advanced_feature_engineer import renaissance_features
-    from analyzers.honeypot_detector import anti_rug_analyzer
+    from analyzers.honeypot_detector import honeypot_detector
     from analyzers.token_profiler import token_profiler
     from realtime_pipeline import realtime_pipeline
     imports_successful = True
@@ -124,7 +124,7 @@ class RenaissanceProductionSystem:
 
     async def process_trading_signal(self, signal):
         try:
-            rug_analysis = await anti_rug_analyzer.analyze_token_safety(signal.address)
+            rug_analysis = await honeypot_detector.analyze_token_safety(signal.address)
             if rug_analysis.risk_score > 0.4:
                 return
             

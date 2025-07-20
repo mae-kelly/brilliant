@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "config"))
 try:
-    from dynamic_parameters import get_dynamic_config, update_performance
+    from optimizer import get_dynamic_config, update_performance
 except ImportError:
     def get_dynamic_config(): return {"volatility_threshold": 0.1, "confidence_threshold": 0.75}
     def update_performance(*args): pass

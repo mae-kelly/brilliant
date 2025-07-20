@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "config"))
 try:
-    from dynamic_parameters import get_dynamic_config, update_performance
+    from optimizer import get_dynamic_config, update_performance
 except ImportError:
     def get_dynamic_config(): return {"volatility_threshold": 0.1, "confidence_threshold": 0.75}
     def update_performance(*args): pass
@@ -44,7 +44,7 @@ try:
     from models.advanced_feature_engineer import advanced_feature_engineer
     from models.regime_detector import regime_detector
     
-    from analyzers.honeypot_detector import anti_rug_analyzer
+    from analyzers.honeypot_detector import honeypot_detector
     from analyzers.token_profiler import token_profiler
     from monitoring.mempool_watcher import mempool_watcher
     
@@ -230,7 +230,7 @@ class RenaissanceProductionSystem:
             if not imports_successful:
                 return await self.simulate_signal_processing(signal)
             
-            rug_analysis = await anti_rug_analyzer.analyze_token_safety(signal.address)
+            rug_analysis = await honeypot_detector.analyze_token_safety(signal.address)
             if rug_analysis.risk_score > get_dynamic_config().get("max_risk_score", 0.4):
                 return
             
