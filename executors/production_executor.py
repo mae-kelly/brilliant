@@ -1,29 +1,3 @@
-#!/bin/bash
-# =============================================================================
-# ⚡ PHASE 3: REAL-TIME EXECUTION ENGINE - PRODUCTION IMPLEMENTATION
-# =============================================================================
-# Complete trading execution with real Web3 transactions
-
-set -e
-
-echo "⚡ PHASE 3: REAL-TIME EXECUTION ENGINE - PRODUCTION"
-echo "================================================"
-
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-print_status() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
-
-print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-print_status "Creating production execution engine..."
-
-cat > executors/production_executor.py << 'EOF'
 """
 PRODUCTION Execution Engine - Real trading with Web3
 Complete implementation with actual transaction execution
