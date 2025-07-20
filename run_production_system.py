@@ -1,7 +1,3 @@
-#!/bin/bash
-# final_integration.sh
-
-cat > run_production_system.py << 'EOF'
 #!/usr/bin/env python3
 import asyncio
 import argparse
@@ -20,30 +16,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-EOF
-
-chmod +x run_production_system.py
-
-cat > requirements_final.txt << 'EOF'
-numpy>=1.24.0
-tensorflow>=2.13.0
-scikit-learn>=1.3.0
-fastapi>=0.100.0
-uvicorn>=0.20.0
-web3>=6.0.0
-aiohttp>=3.8.0
-websockets>=11.0.0
-pandas>=2.0.0
-psutil>=5.9.0
-joblib>=1.3.0
-pydantic>=2.0.0
-python-dotenv>=1.0.0
-ta>=0.10.2
-scipy>=1.11.0
-eth-account>=0.11.0
-requests>=2.31.0
-PyYAML>=6.0.0
-EOF
-
-echo "✅ Final integration complete"
-echo "🚀 System ready for production deployment"
