@@ -18,7 +18,7 @@ from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 import multiprocessing as mp
-from batch_processor import TokenBatch, AsyncTokenScanner
+from core.engine.batch_processor import TokenBatch, AsyncTokenScanner
 
 @dataclass
 class HighPerformanceToken:

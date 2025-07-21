@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from inference_model import MomentumEnsemble
+from core.models.inference_model import MomentumEnsemble
 from model_manager import TFLiteInferenceEngine
 from advanced_ensemble import AdvancedEnsembleModel
 

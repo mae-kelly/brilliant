@@ -27,14 +27,14 @@ def test_imports():
         return False
     
     try:
-        from signal_detector import SignalDetector
+        from intelligence.signals.signal_detector import SignalDetector
         print("✅ signal_detector.py imported")
     except ImportError as e:
         print(f"❌ signal_detector.py error: {e}")
         return False
         
     try:
-        from inference_model import MomentumEnsemble
+        from core.models.inference_model import MomentumEnsemble
         print("✅ inference_model.py imported")
     except ImportError as e:
         print(f"❌ inference_model.py error: {e}")
@@ -128,7 +128,7 @@ def test_components():
     
     try:
         # Test signal detector
-        from signal_detector import SignalDetector
+        from intelligence.signals.signal_detector import SignalDetector
         from unittest.mock import Mock
         
         mock_chains = {'arbitrum': Mock()}
@@ -138,7 +138,7 @@ def test_components():
         print("✅ SignalDetector initialized")
         
         # Test inference model
-        from inference_model import MomentumEnsemble
+        from core.models.inference_model import MomentumEnsemble
         
         model = MomentumEnsemble()
         print("✅ MomentumEnsemble initialized")

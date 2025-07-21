@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-from signal_detector import SignalDetector
-from inference_model import MomentumEnsemble
-from risk_manager import RiskManager
+from intelligence.signals.signal_detector import SignalDetector
+from core.models.inference_model import MomentumEnsemble
+from core.execution.risk_manager import RiskManager
 import logging
 import json
 import aiohttp

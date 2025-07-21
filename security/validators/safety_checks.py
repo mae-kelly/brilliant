@@ -148,7 +148,7 @@ class SafetyChecker:
             return False
 
     async def fetch_historical_prices(self, chain, pool_address):
-        from signal_detector import SignalDetector
+        from intelligence.signals.signal_detector import SignalDetector
         signal_detector = SignalDetector(self.chains, redis.Redis(host=self.settings['redis']['host'], port=self.settings['redis']['port'], db=0))
         return await signal_detector.fetch_historical_prices(chain, pool_address)
 

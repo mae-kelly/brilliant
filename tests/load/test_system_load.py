@@ -112,7 +112,7 @@ class TestSystemLoad:
     
     def test_concurrent_model_inference(self):
         """Test model under concurrent load"""
-        from inference_model import MomentumEnsemble
+        from core.models.inference_model import MomentumEnsemble
         import pandas as pd
         
         model = MomentumEnsemble()

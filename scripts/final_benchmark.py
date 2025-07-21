@@ -78,7 +78,7 @@ class FinalBenchmark:
         print("🔍 Benchmarking token scanning performance...")
         
         try:
-            from batch_processor import AsyncTokenScanner
+            from core.engine.batch_processor import AsyncTokenScanner
             
             # Test with high concurrency
             async with AsyncTokenScanner(max_connections=100) as scanner:
@@ -125,14 +125,14 @@ class FinalBenchmark:
         print("\n🧠 Benchmarking ML inference performance...")
         
         try:
-            from batch_processor import VectorizedMLProcessor
+            from core.engine.batch_processor import VectorizedMLProcessor
             import os
             
             # Check if TFLite model exists
             model_path = 'models/momentum_model.tflite'
             if not os.path.exists(model_path):
                 # Use fallback model for benchmark
-                from inference_model import MomentumEnsemble
+                from core.models.inference_model import MomentumEnsemble
                 model = MomentumEnsemble()
                 
                 # Generate test data
@@ -367,7 +367,7 @@ class FinalBenchmark:
         print("\n🚀 Benchmarking end-to-end pipeline...")
         
         try:
-            from batch_processor import UltraFastPipeline
+            from core.engine.batch_processor import UltraFastPipeline
             
             # Test complete pipeline
             async with UltraFastPipeline() as pipeline:

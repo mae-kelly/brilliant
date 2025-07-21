@@ -300,7 +300,7 @@ class RiskManager:
 
     def check_gas_budget(self, chain, estimated_gas_cost):
         try:
-            from trade_executor import TradeExecutor
+            from core.execution.trade_executor import TradeExecutor
             
             current_cost = 0
             try:

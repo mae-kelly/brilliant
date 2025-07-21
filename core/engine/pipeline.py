@@ -2,16 +2,16 @@ import asyncio
 import pandas as pd
 from web3 import Web3
 from scanner_v3 import ScannerV3
-from inference_model import MomentumEnsemble
-from trade_executor import TradeExecutor
-from safety_checks import SafetyChecker
-from risk_manager import RiskManager
+from core.models.inference_model import MomentumEnsemble
+from core.execution.trade_executor import TradeExecutor
+from security.validators.safety_checks import SafetyChecker
+from core.execution.risk_manager import RiskManager
 from token_profiler import TokenProfiler
-from anti_rug_analyzer import RugpullAnalyzer
-from mempool_watcher import MempoolWatcher
+from security.rugpull.anti_rug_analyzer import RugpullAnalyzer
+from security.mempool.mempool_watcher import MempoolWatcher
 from feedback_loop import FeedbackLoop
 from model_manager import ModelManager, TFLiteInferenceEngine
-from vectorized_features import VectorizedFeatureEngine
+from core.features.vectorized_features import VectorizedFeatureEngine
 from continuous_optimizer import ContinuousOptimizer
 from advanced_ensemble import AdvancedEnsembleModel
 from model_registry import ModelRegistry

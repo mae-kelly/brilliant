@@ -124,7 +124,7 @@ async def validate_database() -> bool:
 async def validate_ml_models() -> bool:
     """Validate ML models can be loaded"""
     try:
-        from inference_model import MomentumEnsemble
+        from core.models.inference_model import MomentumEnsemble
         
         model = MomentumEnsemble()
         logging.info("✅ ML model initialized successfully")

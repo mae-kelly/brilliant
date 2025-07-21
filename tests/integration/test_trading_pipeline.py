@@ -7,11 +7,11 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from signal_detector import SignalDetector
-from inference_model import MomentumEnsemble
-from trade_executor import TradeExecutor
-from risk_manager import RiskManager
-from safety_checks import SafetyChecker
+from intelligence.signals.signal_detector import SignalDetector
+from core.models.inference_model import MomentumEnsemble
+from core.execution.trade_executor import TradeExecutor
+from core.execution.risk_manager import RiskManager
+from security.validators.safety_checks import SafetyChecker
 
 class TestTradingPipeline:
     
