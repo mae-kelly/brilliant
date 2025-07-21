@@ -12,6 +12,9 @@ import asyncio
 import numpy as np
 import pandas as pd
 
+from error_handler import retry_with_backoff, log_performance, CircuitBreaker, safe_execute
+from error_handler import TradingSystemError, NetworkError, ModelInferenceError
+
 class TradeExecutor:
     def __init__(self, chains):
         self.chains = chains
@@ -351,8 +354,8 @@ class TradeExecutor:
             entry_price = position['entry_price']
             stop_loss_threshold = entry_score * (1 - self.decay_threshold)
             
-            monitoring_interval = 5
-            max_holding_time = 1800
+            monitoring_interval = self.settings["trading"]["position_monitor_interval"]
+            max_holding_time = self.settings["trading"]["max_holding_time"]
             
             while position_key in self.positions:
                 current_time = time.time()
@@ -451,7 +454,7 @@ class TradeExecutor:
             if not await self.check_token_approval(chain, token_address):
                 return
 
-            slippage = 0.02
+            slippage = self.settings["trading"]["max_slippage"]
             min_eth_out = int(token_balance * 0.98)
 
             tx_params = {

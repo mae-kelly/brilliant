@@ -15,6 +15,9 @@ import json
 import yaml
 import os
 
+from error_handler import retry_with_backoff, log_performance, CircuitBreaker, safe_execute
+from error_handler import TradingSystemError, NetworkError, ModelInferenceError
+
 class SignalDetector:
     def __init__(self, chains, redis_client):
         self.chains = chains
@@ -108,7 +111,7 @@ class SignalDetector:
             tokens = []
             skip = 0
             endpoint_url = list(endpoints.values())[0]
-            while len(tokens) < 10000:
+            while len(tokens) < self.settings["scanning"]["max_tokens_per_scan"]:
                 data = await self.fetch_dex_data(endpoint_url, query, chain, f"batch_{skip}")
                 pools = data.get('data', {}).get('pools', [])
                 if not pools:
@@ -124,7 +127,7 @@ class SignalDetector:
                         tokens.append(result)
                 
                 skip += 100
-                if len(tokens) >= 10000:
+                if len(tokens) >= self.settings["scanning"]["max_tokens_per_scan"]:
                     break
                     
             self.scan_latency.labels(chain=chain).observe(time.time() - start_time)

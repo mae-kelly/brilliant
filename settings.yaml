@@ -1,83 +1,108 @@
-redis:
-  host: localhost
-  port: 6379
-  
+alchemy:
+  api_key_env: ALCHEMY_API_KEY
+  batch_size: 100
+  rate_limit_per_second: 25
+  timeout_seconds: 30
 dex_endpoints:
   arbitrum:
-    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-arbitrum
     camelot: https://api.thegraph.com/subgraphs/name/camelotlabs/camelot-amm
+    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-arbitrum
+  optimism:
+    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-optimism
   polygon:
     pancakeswap: https://api.thegraph.com/subgraphs/name/pancakeswap/exchange-v3-polygon
     uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-polygon
-  optimism:
-    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-optimism
-
-# Alchemy-optimized settings
-alchemy:
-  api_key_env: ALCHEMY_API_KEY
-  rate_limit_per_second: 25
-  batch_size: 100
-  timeout_seconds: 30
-
-trading:
-  base_position_size: 0.001  # 0.001 ETH base position (~$2-3)
-  momentum_threshold: 0.09   # 9% momentum threshold
-  decay_threshold: 0.005     # 0.5% decay triggers exit
-  breakout_timeframe: 60     # 60 second breakout detection
-  min_volume_spike: 2.5      # 2.5x volume spike required
-  velocity_threshold: 0.13   # 13% velocity threshold
-  max_slippage: 0.03         # 3% max slippage
-  enable_live_trading: false # Safety: disabled by default
-  
-risk:
-  max_position_size: 0.002   # Max 0.002 ETH per trade (~$5-6)
-  min_position_size: 0.0001  # Min 0.0001 ETH per trade
-  base_position_size: 0.001  # Base position size
-  max_gas_budget: 0.005      # Max 0.005 ETH for gas (~$15)
-  max_portfolio_exposure: 0.01 # Max 0.01 ETH total exposure (~$30)
-  min_liquidity: 100000      # Minimum $100k liquidity
-  confidence_level: 0.95     # 95% confidence for VaR
-  kelly_multiplier: 0.25     # Conservative Kelly fraction
-  
-safety:
-  max_pending_txs: 5         # Max pending transactions to consider safe
-  min_liquidity: 100000      # Minimum liquidity threshold
-  honeypot_timeout: 10       # Timeout for honeypot checks
-  contract_min_size: 100     # Minimum contract bytecode size
-  enable_rug_protection: true # Enable rugpull analysis
-  enable_mev_protection: true # Enable MEV protection
-  
 ml:
-  retrain_threshold: 500     # Retrain after 500 data points (reduced for faster adaptation)
-  ensemble_weights: [0.6, 0.4] # Transformer: 60%, XGBoost: 40%
-  feature_window: 60         # 60-point feature window
-  prediction_confidence: 0.75 # 75% confidence threshold
-  entropy_threshold: 0.8     # 80% entropy threshold
-  learning_rate: 0.0001      # Conservative learning rate
-  batch_size: 32            # Training batch size
-
-# Alchemy-specific optimizations  
+  batch_inference_size: 256
+  batch_size: 32
+  ensemble_weights:
+  - 0.6
+  - 0.4
+  entropy_threshold: 0.8
+  feature_cache_size: 10000
+  feature_window: 60
+  inference_timeout: 0.1
+  learning_rate: 0.0001
+  model_path: models/momentum_model.tflite
+  model_update_frequency: 3600
+  prediction_confidence: 0.75
+  retrain_threshold: 500
+monitoring:
+  backup_count: 5
+  health_check_interval: 60
+  log_level: INFO
+  max_log_size_mb: 100
+  metrics_port: 8001
 network_config:
   arbitrum:
     chain_id: 42161
-    gas_multiplier: 1.1
     confirmation_blocks: 1
+    default_gas_limit: 500000
+    gas_multiplier: 1.1
+    max_gas_price_gwei: 100
+    max_retries: 3
     priority_fee: 0.1
-  polygon:
-    chain_id: 137  
-    gas_multiplier: 1.2
-    confirmation_blocks: 20
-    priority_fee: 30
+    rpc_timeout: 30
   optimism:
     chain_id: 10
+    confirmation_blocks: 1
+    default_gas_limit: 500000
     gas_multiplier: 1.05
-    confirmation_blocks: 1 
+    max_gas_price_gwei: 100
+    max_retries: 3
     priority_fee: 0.001
-
-# Performance settings for your setup
+    rpc_timeout: 30
+  polygon:
+    chain_id: 137
+    confirmation_blocks: 20
+    default_gas_limit: 500000
+    gas_multiplier: 1.2
+    max_gas_price_gwei: 100
+    max_retries: 3
+    priority_fee: 30
+    rpc_timeout: 30
 performance:
-  max_concurrent_requests: 10  # Alchemy rate limit friendly
-  cache_ttl_seconds: 30       # 30 second cache for price data  
-  prediction_timeout: 5       # 5 second timeout for ML predictions
-  trade_execution_timeout: 30 # 30 second timeout for trades
-  health_check_interval: 60   # 60 second health checks
+  cache_ttl_seconds: 30
+  health_check_interval: 60
+  max_concurrent_requests: 10
+  prediction_timeout: 5
+  trade_execution_timeout: 30
+redis:
+  host: localhost
+  port: 6379
+risk:
+  base_position_size: 0.001
+  confidence_level: 0.95
+  kelly_multiplier: 0.25
+  max_gas_budget: 0.005
+  max_portfolio_exposure: 0.01
+  max_position_size: 0.002
+  min_liquidity: 100000
+  min_position_size: 0.0001
+safety:
+  contract_min_size: 100
+  enable_mev_protection: true
+  enable_rug_protection: true
+  honeypot_timeout: 10
+  max_pending_txs: 5
+  min_liquidity: 100000
+scanning:
+  batch_size: 100
+  concurrent_requests: 50
+  max_tokens_per_scan: 10000
+  min_liquidity_usd: 250000
+  min_volume_usd: 1000000
+  scan_interval_seconds: 30
+trading:
+  base_position_size: 0.001
+  breakout_timeframe: 60
+  decay_threshold: 0.005
+  enable_live_trading: false
+  max_holding_time: 1800
+  max_slippage: 0.03
+  min_volume_spike: 2.5
+  momentum_threshold: 0.09
+  position_monitor_interval: 5
+  stop_loss_threshold: 0.02
+  take_profit_threshold: 0.15
+  velocity_threshold: 0.13

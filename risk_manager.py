@@ -7,6 +7,9 @@ import json
 import yaml
 import time
 
+from error_handler import retry_with_backoff, log_performance, CircuitBreaker, safe_execute
+from error_handler import TradingSystemError, NetworkError, ModelInferenceError
+
 class RiskManager:
     def __init__(self):
         with open('settings.yaml', 'r') as f:

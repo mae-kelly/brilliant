@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  external_labels:
+    monitor: 'defi-trading-monitor'
+
+scrape_configs:
+  - job_name: 'trading-system'
+    static_configs:
+      - targets: ['defi-trading:8001']
+    
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']

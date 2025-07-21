@@ -11,6 +11,9 @@ import yaml
 import asyncio
 import time
 
+from error_handler import retry_with_backoff, log_performance, CircuitBreaker, safe_execute
+from error_handler import TradingSystemError, NetworkError, ModelInferenceError
+
 # Handle optuna import gracefully
 try:
     import optuna
