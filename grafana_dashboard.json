@@ -1,0 +1,90 @@
+{
+    "dashboard": {
+      "id": null,
+      "uid": null,
+      "title": "DeFi Momentum Trading Dashboard",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Trades Executed",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(trades_executed_total[5m])",
+              "legendFormat": "{{chain}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+        },
+        {
+          "id": 2,
+          "title": "Momentum Score Distribution",
+          "type": "histogram",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(momentum_score_bucket[5m])) by (le, chain, token))",
+              "legendFormat": "{{chain}} - {{token}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+        },
+        {
+          "id": 3,
+          "title": "System Health",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "system_health",
+              "legendFormat": "{{component}}"
+            }
+          ],
+          "gridPos": {"h": 4, "w": 24, "x": 0, "y": 8}
+        },
+        {
+          "id": 4,
+          "title": "Gas Cost (ETH)",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "gas_cost_eth",
+              "legendFormat": "{{chain}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+        },
+        {
+          "id": 5,
+          "title": "Value at Risk",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "value_at_risk",
+              "legendFormat": "{{chain}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+        },
+        {
+          "id": 6,
+          "title": "Portfolio Exposure",
+          "type": "graph",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "portfolio_exposure",
+              "legendFormat": "{{chain}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+        }
+      ],
+      "schemaVersion": 36,
+      "version": 0
+    },
+    "overwrite": false
+  }

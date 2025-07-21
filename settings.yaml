@@ -1,0 +1,83 @@
+redis:
+  host: localhost
+  port: 6379
+  
+dex_endpoints:
+  arbitrum:
+    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-arbitrum
+    camelot: https://api.thegraph.com/subgraphs/name/camelotlabs/camelot-amm
+  polygon:
+    pancakeswap: https://api.thegraph.com/subgraphs/name/pancakeswap/exchange-v3-polygon
+    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-polygon
+  optimism:
+    uniswap: https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3-optimism
+
+# Alchemy-optimized settings
+alchemy:
+  api_key_env: ALCHEMY_API_KEY
+  rate_limit_per_second: 25
+  batch_size: 100
+  timeout_seconds: 30
+
+trading:
+  base_position_size: 0.001  # 0.001 ETH base position (~$2-3)
+  momentum_threshold: 0.09   # 9% momentum threshold
+  decay_threshold: 0.005     # 0.5% decay triggers exit
+  breakout_timeframe: 60     # 60 second breakout detection
+  min_volume_spike: 2.5      # 2.5x volume spike required
+  velocity_threshold: 0.13   # 13% velocity threshold
+  max_slippage: 0.03         # 3% max slippage
+  enable_live_trading: false # Safety: disabled by default
+  
+risk:
+  max_position_size: 0.002   # Max 0.002 ETH per trade (~$5-6)
+  min_position_size: 0.0001  # Min 0.0001 ETH per trade
+  base_position_size: 0.001  # Base position size
+  max_gas_budget: 0.005      # Max 0.005 ETH for gas (~$15)
+  max_portfolio_exposure: 0.01 # Max 0.01 ETH total exposure (~$30)
+  min_liquidity: 100000      # Minimum $100k liquidity
+  confidence_level: 0.95     # 95% confidence for VaR
+  kelly_multiplier: 0.25     # Conservative Kelly fraction
+  
+safety:
+  max_pending_txs: 5         # Max pending transactions to consider safe
+  min_liquidity: 100000      # Minimum liquidity threshold
+  honeypot_timeout: 10       # Timeout for honeypot checks
+  contract_min_size: 100     # Minimum contract bytecode size
+  enable_rug_protection: true # Enable rugpull analysis
+  enable_mev_protection: true # Enable MEV protection
+  
+ml:
+  retrain_threshold: 500     # Retrain after 500 data points (reduced for faster adaptation)
+  ensemble_weights: [0.6, 0.4] # Transformer: 60%, XGBoost: 40%
+  feature_window: 60         # 60-point feature window
+  prediction_confidence: 0.75 # 75% confidence threshold
+  entropy_threshold: 0.8     # 80% entropy threshold
+  learning_rate: 0.0001      # Conservative learning rate
+  batch_size: 32            # Training batch size
+
+# Alchemy-specific optimizations  
+network_config:
+  arbitrum:
+    chain_id: 42161
+    gas_multiplier: 1.1
+    confirmation_blocks: 1
+    priority_fee: 0.1
+  polygon:
+    chain_id: 137  
+    gas_multiplier: 1.2
+    confirmation_blocks: 20
+    priority_fee: 30
+  optimism:
+    chain_id: 10
+    gas_multiplier: 1.05
+    confirmation_blocks: 1 
+    priority_fee: 0.001
+
+# Performance settings for your setup
+performance:
+  max_concurrent_requests: 10  # Alchemy rate limit friendly
+  cache_ttl_seconds: 30       # 30 second cache for price data  
+  prediction_timeout: 5       # 5 second timeout for ML predictions
+  trade_execution_timeout: 30 # 30 second timeout for trades
+  health_check_interval: 60   # 60 second health checks
