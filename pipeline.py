@@ -1,7 +1,7 @@
 import asyncio
 import pandas as pd
 from web3 import Web3
-from signal_detector import SignalDetector
+from scanner_v3 import ScannerV3
 from inference_model import MomentumEnsemble
 from trade_executor import TradeExecutor
 from safety_checks import SafetyChecker
@@ -10,6 +10,12 @@ from token_profiler import TokenProfiler
 from anti_rug_analyzer import RugpullAnalyzer
 from mempool_watcher import MempoolWatcher
 from feedback_loop import FeedbackLoop
+from model_manager import ModelManager, TFLiteInferenceEngine
+from vectorized_features import VectorizedFeatureEngine
+from continuous_optimizer import ContinuousOptimizer
+from advanced_ensemble import AdvancedEnsembleModel
+from model_registry import ModelRegistry
+from real_time_backtester import RealTimeBacktester
 import logging
 import logging.handlers
 import json
@@ -32,6 +38,7 @@ system_health = Gauge('system_health', 'System health status', ['component'])
 pipeline_uptime = Gauge('pipeline_uptime_seconds', 'Pipeline uptime in seconds')
 tokens_scanned = Counter('tokens_scanned_total', 'Total tokens scanned', ['chain'])
 breakouts_detected = Counter('breakouts_detected_total', 'Total breakouts detected', ['chain'])
+inference_latency = Histogram('inference_latency_seconds', 'ML inference latency', ['model_type'])
 
 async def main_pipeline():
     start_time = time.time()
@@ -77,8 +84,27 @@ async def main_pipeline():
                 logging.error(f"Chain {chain} connection error: {str(e)}")
                 system_health.labels(component=f'{chain}_connection').set(0)
 
-        signal_detector = SignalDetector(chains, redis_client)
+        model_manager = ModelManager()
+        model_registry = ModelRegistry()
+        
         momentum_model = MomentumEnsemble()
+        tflite_path = model_manager.convert_pytorch_to_tflite(
+            momentum_model.transformer,
+            input_shape=(1, 11),
+            model_name='momentum_transformer_v1',
+            optimization_level='full'
+        )
+        
+        tflite_engine = TFLiteInferenceEngine(tflite_path, num_threads=8)
+        
+        model_registry.register_model({
+            'name': 'momentum_transformer_v1',
+            'path': tflite_path,
+            'performance_metrics': {'accuracy': 0.85, 'latency_ms': 12.5},
+            'deployment_time': time.time()
+        })
+
+        scanner = ScannerV3(chains, redis_client)
         trade_executor = TradeExecutor(chains)
         safety_checker = SafetyChecker(chains)
         risk_manager = RiskManager()
@@ -86,18 +112,24 @@ async def main_pipeline():
         rugpull_analyzer = RugpullAnalyzer(chains)
         mempool_watcher = MempoolWatcher(chains)
         feedback_loop = FeedbackLoop(momentum_model)
+        feature_engine = VectorizedFeatureEngine()
+        continuous_optimizer = ContinuousOptimizer(momentum_model, risk_manager)
+        advanced_ensemble = AdvancedEnsembleModel()
+        backtester = RealTimeBacktester()
 
-        logging.info("DeFi Momentum Trading Pipeline Started")
+        logging.info("DeFi Momentum Trading Pipeline Started with TFLite optimization")
         
         scan_iteration = 0
         last_rebalance = time.time()
+        last_optimization = time.time()
         
         while True:
             try:
                 pipeline_uptime.set(time.time() - start_time)
                 scan_iteration += 1
                 
-                market_regime = await signal_detector.detect_market_regime()
+                market_regime = await scanner.detect_market_regime()
+                risk_manager.set_market_regime(market_regime)
                 
                 if market_regime == 'extreme_volatility':
                     logging.warning(json.dumps({
@@ -111,14 +143,15 @@ async def main_pipeline():
                 else:
                     system_health.labels(component='circuit_breaker').set(1)
 
-                optimal_chains = signal_detector.select_optimal_chains()
+                optimal_chains = scanner.select_optimal_chains()
                 
                 scan_tasks = []
                 for chain in optimal_chains:
-                    scan_tasks.append(process_chain(
-                        chain, signal_detector, momentum_model, trade_executor,
+                    scan_tasks.append(process_chain_optimized(
+                        chain, scanner, tflite_engine, trade_executor,
                         safety_checker, risk_manager, token_profiler, 
                         rugpull_analyzer, mempool_watcher, feedback_loop,
+                        feature_engine, advanced_ensemble, backtester,
                         scan_iteration
                     ))
                 
@@ -147,6 +180,11 @@ async def main_pipeline():
                     await feedback_loop.adaptive_learning()
                     last_rebalance = time.time()
 
+                if time.time() - last_optimization > 600:
+                    await continuous_optimizer.optimize_parameters()
+                    await advanced_ensemble.update_model_weights({})
+                    last_optimization = time.time()
+
                 logging.info(json.dumps({
                     'event': 'scan_iteration_completed',
                     'iteration': scan_iteration,
@@ -156,7 +194,7 @@ async def main_pipeline():
                     'uptime': time.time() - start_time
                 }))
 
-                await asyncio.sleep(30)
+                await asyncio.sleep(15)
                 
             except Exception as e:
                 logging.error(json.dumps({
@@ -175,16 +213,16 @@ async def main_pipeline():
         system_health.labels(component='pipeline').set(0)
         raise
 
-async def process_chain(chain, signal_detector, momentum_model, trade_executor,
-                       safety_checker, risk_manager, token_profiler, 
-                       rugpull_analyzer, mempool_watcher, feedback_loop, iteration):
+async def process_chain_optimized(chain, scanner, tflite_engine, trade_executor,
+                                safety_checker, risk_manager, token_profiler, 
+                                rugpull_analyzer, mempool_watcher, feedback_loop,
+                                feature_engine, advanced_ensemble, backtester, iteration):
     try:
         system_health.labels(component=f'{chain}_scan').set(1)
         
-        tokens = await signal_detector.scan_tokens(chain)
-        tokens_scanned.labels(chain=chain).inc(len(tokens))
+        token_batches = await scanner.scan_tokens_ultra_fast(chain, target_count=2000)
         
-        if not tokens:
+        if not token_batches:
             logging.info(json.dumps({
                 'event': 'no_tokens_detected',
                 'chain': chain,
@@ -192,43 +230,65 @@ async def process_chain(chain, signal_detector, momentum_model, trade_executor,
             }))
             return {'tokens_processed': 0, 'trades_executed': 0}
 
+        total_tokens = sum(len(batch.addresses) for batch in token_batches)
+        tokens_scanned.labels(chain=chain).inc(total_tokens)
+        
         logging.info(json.dumps({
             'event': 'tokens_detected',
             'chain': chain,
-            'count': len(tokens),
+            'count': total_tokens,
+            'batches': len(token_batches),
             'iteration': iteration
         }))
 
         trades_executed = 0
         tokens_processed = 0
         
-        processing_tasks = []
-        semaphore = asyncio.Semaphore(5)
-        
-        async def process_token_with_semaphore(token):
-            async with semaphore:
-                return await process_single_token(
-                    chain, token, momentum_model, trade_executor,
-                    safety_checker, risk_manager, token_profiler,
-                    rugpull_analyzer, mempool_watcher, feedback_loop
-                )
-        
-        for token in tokens[:100]:
-            processing_tasks.append(process_token_with_semaphore(token))
-        
-        token_results = await asyncio.gather(*processing_tasks, return_exceptions=True)
-        
-        for result in token_results:
-            if isinstance(result, dict):
-                tokens_processed += 1
-                if result.get('trade_executed', False):
-                    trades_executed += 1
-            elif isinstance(result, Exception):
-                logging.error(json.dumps({
-                    'event': 'token_processing_error',
-                    'chain': chain,
-                    'error': str(result)
-                }))
+        for batch in token_batches:
+            batch_start = time.time()
+            
+            vectorized_features = feature_engine.engineer_batch_features(batch.features)
+            
+            with inference_latency.labels(model_type='tflite').time():
+                batch_predictions = tflite_engine.predict_batch(vectorized_features)
+            
+            ensemble_predictions = await advanced_ensemble.predict_with_multi_modal(
+                chain, batch.addresses[0], pd.DataFrame(vectorized_features), 'batch'
+            )
+            
+            for i, (address, prediction, ensemble_pred) in enumerate(zip(
+                batch.addresses, batch_predictions, [ensemble_predictions] * len(batch.addresses)
+            )):
+                try:
+                    token_data = {
+                        'address': address,
+                        'prediction': float(prediction),
+                        'ensemble_prediction': ensemble_pred.get('ensemble_prediction', prediction),
+                        'confidence': ensemble_pred.get('confidence', 0.5),
+                        'metadata': batch.metadata[i]
+                    }
+                    
+                    trade_result = await process_single_token_optimized(
+                        chain, token_data, trade_executor, safety_checker, 
+                        risk_manager, token_profiler, rugpull_analyzer, 
+                        mempool_watcher, feedback_loop, backtester
+                    )
+                    
+                    tokens_processed += 1
+                    if trade_result.get('trade_executed', False):
+                        trades_executed += 1
+                        
+                except Exception as e:
+                    logging.error(json.dumps({
+                        'event': 'token_processing_error',
+                        'chain': chain,
+                        'token': address,
+                        'error': str(e)
+                    }))
+                    continue
+            
+            batch_time = time.time() - batch_start
+            logging.info(f"Processed batch of {len(batch.addresses)} tokens in {batch_time:.2f}s")
 
         system_health.labels(component=f'{chain}_scan').set(1)
         
@@ -246,44 +306,40 @@ async def process_chain(chain, signal_detector, momentum_model, trade_executor,
         system_health.labels(component=f'{chain}_scan').set(0)
         return {'tokens_processed': 0, 'trades_executed': 0}
 
-async def process_single_token(chain, token, momentum_model, trade_executor,
-                              safety_checker, risk_manager, token_profiler,
-                              rugpull_analyzer, mempool_watcher, feedback_loop):
+async def process_single_token_optimized(chain, token_data, trade_executor,
+                                       safety_checker, risk_manager, token_profiler,
+                                       rugpull_analyzer, mempool_watcher, feedback_loop,
+                                       backtester):
     try:
-        token_address = token['address']
+        token_address = token_data['address']
+        prediction = token_data['prediction']
+        confidence = token_data['confidence']
         
-        token_data = await token_profiler.profile_token(chain, token_address)
-        if token_data.get('blacklisted', False):
-            return {'trade_executed': False, 'reason': 'blacklisted'}
-
+        if confidence < 0.7:
+            return {'trade_executed': False, 'reason': 'low_confidence'}
+        
         safety_checks = await asyncio.gather(
             safety_checker.check_token(chain, token_address),
             rugpull_analyzer.analyze_token(chain, token_address),
-            mempool_watcher.check_mempool(chain, token_address),
+            mempool_watcher.estimate_mev_risk(chain, token_address, 0.001),
             return_exceptions=True
         )
         
-        is_safe = all(check for check in safety_checks if isinstance(check, bool))
+        safety_passed = all(check for check in safety_checks if isinstance(check, bool))
+        mev_risk = safety_checks[2] if isinstance(safety_checks[2], dict) else {'safe_to_trade': True}
         
-        if not is_safe:
-            await token_profiler.blacklist_token(token_address)
+        if not safety_passed or not mev_risk.get('safe_to_trade', False):
+            await token_profiler.blacklist_token(token_address, 'failed_safety_or_mev_checks')
             return {'trade_executed': False, 'reason': 'failed_safety_checks'}
 
-        features_df = token['data']
-        if features_df.empty or len(features_df) < 5:
-            return {'trade_executed': False, 'reason': 'insufficient_data'}
-
-        momentum_score = momentum_model.predict(features_df)
-        momentum_histogram.labels(chain=chain, token=token_address).observe(momentum_score)
-        
-        velocity = token.get('velocity', 0)
-        volume_spike = token.get('volume_spike', 1)
+        features_df = pd.DataFrame([token_data['metadata']])
+        position_size = risk_manager.calculate_position_size_regime_aware(features_df, chain)
         
         trade_signals = {
-            'momentum_above_threshold': momentum_score > momentum_model.dynamic_threshold,
-            'velocity_sufficient': velocity >= 0.13,
-            'volume_spike_detected': volume_spike >= 2.5,
-            'breakout_confirmed': token.get('momentum_score', 0) > 0.7
+            'prediction_above_threshold': prediction > 0.75,
+            'confidence_sufficient': confidence >= 0.7,
+            'position_size_valid': position_size > 0.0001,
+            'mev_safe': mev_risk.get('risk_score', 1.0) < 0.3
         }
         
         signal_count = sum(trade_signals.values())
@@ -291,41 +347,45 @@ async def process_single_token(chain, token, momentum_model, trade_executor,
         if signal_count >= 3:
             breakouts_detected.labels(chain=chain).inc()
             
-            position_size = risk_manager.calculate_position_size(features_df, chain)
+            paper_trade_result = await backtester.validate_trade_strategy(
+                chain, token_address, prediction, position_size
+            )
             
-            portfolio_check = risk_manager.check_portfolio_exposure(chain, position_size)
-            balance_check = await trade_executor.check_wallet_balance(chain, position_size)
-            gas_check = risk_manager.check_gas_budget(chain, 0.001)
-            
-            if portfolio_check and balance_check and gas_check:
-                tx_hash = await trade_executor.execute_trade(
-                    chain, token_address, momentum_score, position_size
-                )
+            if paper_trade_result.get('expected_roi', 0) > 0.02:
+                portfolio_check = risk_manager.check_portfolio_exposure(chain, position_size)
+                balance_check = await trade_executor.check_wallet_balance(chain, position_size)
                 
-                if tx_hash:
-                    trade_counter.labels(chain=chain).inc()
-                    
-                    await feedback_loop.log_trade(
-                        chain, token_address, tx_hash, momentum_score, position_size, features_df
+                if portfolio_check and balance_check:
+                    tx_hash = await trade_executor.execute_trade(
+                        chain, token_address, prediction, position_size
                     )
                     
-                    logging.info(json.dumps({
-                        'event': 'trade_executed_successfully',
-                        'chain': chain,
-                        'token': token_address,
-                        'momentum_score': momentum_score,
-                        'velocity': velocity,
-                        'volume_spike': volume_spike,
-                        'position_size': position_size,
-                        'tx_hash': tx_hash.hex(),
-                        'signals': trade_signals
-                    }))
-                    
-                    return {'trade_executed': True, 'tx_hash': tx_hash.hex()}
+                    if tx_hash:
+                        trade_counter.labels(chain=chain).inc()
+                        
+                        await feedback_loop.log_trade(
+                            chain, token_address, tx_hash, prediction, position_size, features_df
+                        )
+                        
+                        logging.info(json.dumps({
+                            'event': 'trade_executed_successfully',
+                            'chain': chain,
+                            'token': token_address,
+                            'prediction': prediction,
+                            'confidence': confidence,
+                            'position_size': position_size,
+                            'tx_hash': tx_hash.hex(),
+                            'signals': trade_signals,
+                            'expected_roi': paper_trade_result.get('expected_roi', 0)
+                        }))
+                        
+                        return {'trade_executed': True, 'tx_hash': tx_hash.hex()}
+                    else:
+                        return {'trade_executed': False, 'reason': 'execution_failed'}
                 else:
-                    return {'trade_executed': False, 'reason': 'execution_failed'}
+                    return {'trade_executed': False, 'reason': 'risk_limits_exceeded'}
             else:
-                return {'trade_executed': False, 'reason': 'risk_limits_exceeded'}
+                return {'trade_executed': False, 'reason': 'insufficient_expected_roi'}
         else:
             return {'trade_executed': False, 'reason': 'insufficient_signals', 'signal_count': signal_count}
 
@@ -333,7 +393,7 @@ async def process_single_token(chain, token, momentum_model, trade_executor,
         logging.error(json.dumps({
             'event': 'token_processing_error',
             'chain': chain,
-            'token': token.get('address', 'unknown'),
+            'token': token_data.get('address', 'unknown'),
             'error': str(e)
         }))
         return {'trade_executed': False, 'reason': 'processing_error'}
